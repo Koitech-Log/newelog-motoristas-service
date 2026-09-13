@@ -15,6 +15,8 @@ public class MotoristaService {
     }
 
     public void salvarMotorista(Motorista motorista){
+        if (repository.findByCpfCnpj(motorista.getCpfCnpj()).isPresent()) 
+            {throw new RuntimeException("Já existe motorista com esse CPF/CNPJ");}
         repository.saveAndFlush(motorista);
     }
 
@@ -28,6 +30,22 @@ public class MotoristaService {
     
     public Motorista buscarMotoristaPorCpfCnpj(String cpfCnpj){
         return repository.findByCpfCnpj(cpfCnpj).orElseThrow(()-> new RuntimeException("Motorista não encontrado:" + cpfCnpj));
+    }
+
+    public Motorista atualizarMotorista(Integer id, Motorista dadosAtualizados) {
+    Motorista motorista = buscarMotoristaPorId(id);
+    motorista.setNome(dadosAtualizados.getNome());
+    return repository.saveAndFlush(motorista);
+    }
+
+    public void removerMotorista(Integer id) {
+    if (!repository.existsById(id)) 
+        {throw new RuntimeException("Motorista não encontrado: " + id);}
+    repository.deleteById(id);
+    }
+
+    public List<Motorista> listarTodos() {
+    return repository.findAll();
     }
     
 }
