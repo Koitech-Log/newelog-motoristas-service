@@ -1,0 +1,33 @@
+# docker-compose para rodar o motoristas-service isoladamente durante o
+# desenvolvimento deste repositório. A orquestração completa com os demais
+# microsserviços vive no repositório newelog-infra (ver documento "GitHub
+# Multirrepositório para os Microsserviços", passo 5).
+services:
+  motoristas-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: motoristas_db
+      POSTGRES_USER: newelog
+      POSTGRES_PASSWORD: newelog
+    ports:
+      - "5432:5432"
+    volumes:
+      - motoristas-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newelog -d motoristas_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  motoristas-service:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      motoristas-db:
+        condition: service_healthy
+
+volumes:
+  motoristas-db-data:
