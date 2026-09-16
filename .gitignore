@@ -34,3 +34,7 @@ build/
 
 ### Variáveis de ambiente locais ###
 .env
+
+### Frontend ###
+motoristas-web/node_modules/
+motoristas-web/dist/
