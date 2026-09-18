@@ -1,37 +1,64 @@
-// Import individual de cada ícone (não o pacote inteiro) para manter o bundle
-// enxuto — free-solid-svg-icons sozinho tem centenas de ícones.
+// Import individual de cada ícone.
+// Evita importar o pacote inteiro e mantém o bundle enxuto.
+
 import {
-  faMagnifyingGlass,
+  // ==================== SIDEBAR / HEADER ====================
+  faBars,
+  faGaugeHigh,
   faTruck,
   faTruckFast,
-  faChevronRight,
-  faXmark,
-  faCircleCheck,
-  faCircleExclamation,
-  faGaugeHigh,
+  faIdCard,
+  faRankingStar,
+  faFileImport,
+  faFileExport,
+  faUserTie,
+  faUserGear,
+
+  // ==================== NAVEGAÇÃO / OUTRAS TELAS ====================
   faRoute,
   faCalendarCheck,
   faUserPlus,
-  faSpinner,
   faInbox,
+
+  // ==================== AÇÕES ====================
+  faMagnifyingGlass,
+  faChevronRight,
+  faXmark,
   faArrowRotateRight,
+
+  // ==================== STATUS ====================
+  faCircleCheck,
+  faCircleExclamation,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 
 export const icons = {
-  search: faMagnifyingGlass,
+  // ==================== SIDEBAR / HEADER ====================
+  bars: faBars,
+  gauge: faGaugeHigh,
   truck: faTruck,
   truckFast: faTruckFast,
-  chevronRight: faChevronRight,
-  close: faXmark,
-  error: faCircleExclamation,
-  userPlus: faUserPlus,
-  spinner: faSpinner,
-  inbox: faInbox,
-  retry: faArrowRotateRight,
-  // Reservados para as próximas telas (Home, Ranking) quando os demais
-  // microsserviços existirem — ver README, seção "Pendências conhecidas".
-  success: faCircleCheck,
-  gauge: faGaugeHigh,
+  idCard: faIdCard,
+  rankingStar: faRankingStar,
+  fileImport: faFileImport,
+  fileExport: faFileExport,
+  userTie: faUserTie,
+  userGear: faUserGear,
+
+  // ==================== NAVEGAÇÃO / OUTRAS TELAS ====================
   route: faRoute,
   calendarCheck: faCalendarCheck,
+  userPlus: faUserPlus,
+  inbox: faInbox,
+
+  // ==================== AÇÕES ====================
+  search: faMagnifyingGlass,
+  chevronRight: faChevronRight,
+  close: faXmark,
+  retry: faArrowRotateRight,
+
+  // ==================== STATUS ====================
+  success: faCircleCheck,
+  error: faCircleExclamation,
+  spinner: faSpinner,
 };
