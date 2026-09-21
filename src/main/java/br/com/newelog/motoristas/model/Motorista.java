@@ -25,9 +25,12 @@ import lombok.Setter;
  * do manifesto de origem, que é o titular do contrato/CNPJ do veículo e nem sempre
  * é a mesma pessoa (ver documento "Respostas do Parceiro e Dados Reais", seção 3).
  *
- * Dados pessoais sensíveis do manifesto de origem (CPF, PIS, data de nascimento,
- * endereço) não têm campo equivalente aqui, por decisão de produto — este serviço
- * não é o sistema de RH/cadastro trabalhista, é o painel operacional de frota.
+ * Dados pessoais sensíveis do motorista (CPF/CNPJ, telefone) são armazenados
+ * por pedido explícito do parceiro (ver documento "Respostas do Parceiro e
+ * Dados Reais", pergunta 9 do Q&A) — decisão que substitui a anterior de não
+ * guardar PII neste serviço. Telefone não está disponível na base de origem
+ * atual (o manifesto processado não traz esse campo) e fica nulo até o
+ * parceiro enviar essa informação.
  */
 @Entity
 @Table(name = "motorista")
@@ -50,6 +53,12 @@ public class Motorista {
 
     @Column(nullable = false, length = 150)
     private String nome;
+
+    @Column(name = "cpf_cnpj", length = 20)
+    private String cpfCnpj;
+
+    @Column(length = 20)
+    private String telefone;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "veiculo_id")

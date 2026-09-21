@@ -67,6 +67,9 @@
   transition: transform 0.15s var(--ease-out), border-color 0.2s ease, color 0.2s ease,
     background 0.2s ease;
   font-family: var(--font-body);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .chip:hover {
@@ -76,6 +79,23 @@
 
 .chip:active {
   transform: scale(0.96);
+}
+
+.dot {
+  font-size: 7px;
+}
+
+.dotGreen {
+  color: var(--green);
+}
+
+.dotRed {
+  color: var(--red);
+}
+
+.chip.active .dotGreen,
+.chip.active .dotRed {
+  filter: brightness(2.2);
 }
 
 .chip.active {

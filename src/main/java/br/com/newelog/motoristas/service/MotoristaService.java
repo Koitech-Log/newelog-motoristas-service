@@ -3,12 +3,15 @@ package br.com.newelog.motoristas.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
+import br.com.newelog.motoristas.dto.PaginaDTO;
 import br.com.newelog.motoristas.dto.ViagemResponseDTO;
 import br.com.newelog.motoristas.model.Motorista;
 import br.com.newelog.motoristas.model.StatusMotorista;
@@ -26,15 +29,23 @@ public class MotoristaService {
     }
 
     @Transactional(readOnly = true)
-    public List<MotoristaResumoDTO> listar(StatusMotorista status, String destino, String busca) {
+    public PaginaDTO<MotoristaResumoDTO> listar(
+            StatusMotorista status, String destino, String busca, Pageable pageable
+    ) {
         Specification<Motorista> spec = Specification
                 .where(MotoristaSpecifications.comStatus(status))
                 .and(MotoristaSpecifications.comDestino(destino))
-                .and(MotoristaSpecifications.comNomeContendo(busca));
+                .and(MotoristaSpecifications.comNomeOuCpfContendo(busca));
 
-        return motoristaRepository.findAll(spec).stream()
-                .map(this::paraResumo)
-                .toList();
+        Page<Motorista> pagina = motoristaRepository.findAll(spec, pageable);
+
+        return new PaginaDTO<>(
+                pagina.getContent().stream().map(this::paraResumo).toList(),
+                pagina.getNumber(),
+                pagina.getTotalPages(),
+                pagina.getTotalElements(),
+                pagina.getSize()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +98,8 @@ public class MotoristaService {
                 m.getId(),
                 m.getCodigoExterno(),
                 m.getNome(),
+                m.getCpfCnpj(),
+                m.getTelefone(),
                 veiculo != null ? veiculo.getPlaca() : null,
                 veiculo != null && veiculo.getTipo() != null ? veiculo.getTipo().getNome() : null,
                 veiculo != null ? veiculo.getMarca() : null,
@@ -95,6 +108,7 @@ public class MotoristaService {
                 m.getDiasOperacao(),
                 totalFrete,
                 totalPedagio,
+                totalFrete.subtract(totalPedagio),
                 m.isCadastroValidado(),
                 viagens
         );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "../icons";
+import { useProfile } from "../../context/ProfileContext";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
@@ -11,7 +12,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Mantém 'drivers' selecionado por defeito
   const [activeTab, setActiveTab] = useState<string>("drivers");
-  const [profile, setProfile] = useState<"gestor" | "operador">("gestor");
+  const { perfil, setPerfil } = useProfile();
 
   const handleNavClick = (tabKey: string) => {
     // Se clicar em motoristas, apenas fecha o menu no telemóvel
@@ -124,22 +125,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               aria-label="Perfil de visualização"
             >
               <button
-                className={`${styles.profileBtn} ${profile === "gestor" ? styles.profileActive : ""}`}
+                className={`${styles.profileBtn} ${perfil === "gestor" ? styles.profileActive : ""}`}
                 type="button"
                 role="radio"
-                aria-checked={profile === "gestor"}
-                onClick={() => setProfile("gestor")}
+                aria-checked={perfil === "gestor"}
+                onClick={() => setPerfil("gestor")}
               >
                 <FontAwesomeIcon icon={icons.userTie} />
                 <span>Gestor</span>
               </button>
 
               <button
-                className={`${styles.profileBtn} ${profile === "operador" ? styles.profileActive : ""}`}
+                className={`${styles.profileBtn} ${perfil === "operador" ? styles.profileActive : ""}`}
                 type="button"
                 role="radio"
-                aria-checked={profile === "operador"}
-                onClick={() => setProfile("operador")}
+                aria-checked={perfil === "operador"}
+                onClick={() => setPerfil("operador")}
               >
                 <FontAwesomeIcon icon={icons.userGear} />
                 <span>Operador</span>

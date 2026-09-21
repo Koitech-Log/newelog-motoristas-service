@@ -36,16 +36,19 @@ export function useMotoristaDetalhe(id: number | null) {
   }, [carregar]);
 
   const atualizarStatus = useCallback(
-    async (novoStatus: StatusMotorista) => {
-      if (id === null) return;
-      setEstado((atual) => ({ ...atual, atualizandoStatus: true }));
+    async (novoStatus: StatusMotorista): Promise<{ sucesso: boolean; mensagem: string }> => {
+      if (id === null) return { sucesso: false, mensagem: "Motorista inválido." };
+      setEstado((atual) => ({ ...atual, atualizandoStatus: true, erro: null }));
       try {
         const motorista = await motoristasApi.atualizarStatus(id, novoStatus);
-        setEstado((atual) => ({ ...atual, motorista, atualizandoStatus: false }));
+        setEstado((atual) => ({ ...atual, motorista, atualizandoStatus: false, erro: null }));
+        const rotulo = novoStatus === "DISPONIVEL" ? "Disponível" : "Em operação";
+        return { sucesso: true, mensagem: `Status atualizado para ${rotulo}.` };
       } catch (erro) {
         const mensagem =
           erro instanceof ApiRequestError ? erro.message : "Não foi possível atualizar o status.";
         setEstado((atual) => ({ ...atual, atualizandoStatus: false, erro: mensagem }));
+        return { sucesso: false, mensagem };
       }
     },
     [id]

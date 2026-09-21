@@ -3,6 +3,11 @@
 -- Segue a modelagem definida no documento "Arquitetura Técnica" (seção 2.1),
 -- com o ajuste de granularidade Manifesto->Viagem->Entrega deixado como
 -- evolução futura (ver comentário na entidade Viagem).
+--
+-- motorista.cpf_cnpj e motorista.telefone: armazenados por pedido explícito
+-- do parceiro (documento "Respostas do Parceiro e Dados Reais", pergunta 9).
+-- telefone não está disponível na fonte de dados processada até agora e é
+-- populado como NULL no seed (V2).
 
 CREATE TABLE veiculo_tipo (
     id     BIGSERIAL PRIMARY KEY,
@@ -20,6 +25,8 @@ CREATE TABLE motorista (
     id                  BIGSERIAL PRIMARY KEY,
     codigo_externo      VARCHAR(120) UNIQUE,
     nome                VARCHAR(150) NOT NULL,
+    cpf_cnpj            VARCHAR(20),
+    telefone            VARCHAR(20),
     veiculo_id          BIGINT REFERENCES veiculo(id),
     status              VARCHAR(20) NOT NULL,
     dias_disponiveis    INTEGER NOT NULL DEFAULT 0,

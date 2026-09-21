@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMotoristaDetalhe } from "../hooks/useMotoristaDetalhe";
-import { icons } from "./icons";
+import { useProfile } from "../context/ProfileContext";
+import { icons, iconePorTipoVeiculo } from "./icons";
 import type { StatusMotorista } from "../types/motorista";
 import { RadialGauge } from "./RadialGauge";
 import styles from "./DriverDrawer.module.css";
@@ -9,7 +10,7 @@ import styles from "./DriverDrawer.module.css";
 interface DriverDrawerProps {
   motoristaId: number | null;
   onClose: () => void;
-  aoAtualizarStatus?: () => void;
+  aoAtualizarStatus?: (sucesso: boolean, mensagem: string) => void;
 }
 
 const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
@@ -27,6 +28,7 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
   const aberto = motoristaId !== null;
   const { motorista, carregando, erro, atualizandoStatus, atualizarStatus } =
     useMotoristaDetalhe(motoristaId);
+  const { podeVerFinanceiro } = useProfile();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -42,8 +44,8 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
   }, [onClose]);
 
   async function handleAtualizarStatus(status: StatusMotorista) {
-    await atualizarStatus(status);
-    aoAtualizarStatus?.();
+    const resultado = await atualizarStatus(status);
+    aoAtualizarStatus?.(resultado.sucesso, resultado.mensagem);
   }
 
   return (
@@ -81,13 +83,15 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
               <>
                 <div className={styles.head}>
                   <div className={styles.avatar}>
-                    <FontAwesomeIcon icon={icons.truckFast} />
+                    <FontAwesomeIcon icon={iconePorTipoVeiculo(motorista.tipoVeiculo)} />
                   </div>
                   <div>
                     <div className={styles.name}>
                       {motorista.nome}
                       {!motorista.cadastroValidado && (
-                        <span className={styles.badgeNew}>Novo</span>
+                        <span className={styles.badgeNew}>
+                          <FontAwesomeIcon icon={icons.userPlus} /> Novo
+                        </span>
                       )}
                     </div>
                     <div className={styles.subtitle}>
@@ -103,6 +107,7 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
                       motorista.status === "DISPONIVEL" ? styles.disp : styles.ocup
                     }`}
                   >
+                    <FontAwesomeIcon icon={icons.dot} className={styles.statusDot} />
                     {motorista.status === "DISPONIVEL"
                       ? "Disponível para nova operação"
                       : "Em operação"}
@@ -110,6 +115,7 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
 
                   {!motorista.cadastroValidado && (
                     <p className={styles.note}>
+                      <FontAwesomeIcon icon={icons.warning} />
                       Este motorista foi incluído automaticamente a partir do último manifesto
                       importado — ainda não passou por validação manual.
                     </p>
@@ -126,6 +132,11 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
                         }`}
                         onClick={() => handleAtualizarStatus("DISPONIVEL")}
                       >
+                        {atualizandoStatus ? (
+                          <FontAwesomeIcon icon={icons.spinner} spin />
+                        ) : (
+                          <FontAwesomeIcon icon={icons.success} />
+                        )}
                         Disponível
                       </button>
                       <button
@@ -136,17 +147,25 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
                         }`}
                         onClick={() => handleAtualizarStatus("EM_OPERACAO")}
                       >
+                        {atualizandoStatus ? (
+                          <FontAwesomeIcon icon={icons.spinner} spin />
+                        ) : (
+                          <FontAwesomeIcon icon={icons.truckFast} />
+                        )}
                         Em operação
                       </button>
                     </div>
                     <span className={styles.statusHint}>
-                      Ação disponível para Operador e Gestor.
+                      <FontAwesomeIcon icon={icons.userGear} /> Ação disponível para Operador e
+                      Gestor.
                     </span>
                   </div>
                 </section>
 
                 <section className={styles.section}>
-                  <div className={styles.sectionLabel}>Utilização no período</div>
+                  <div className={styles.sectionLabel}>
+                    <FontAwesomeIcon icon={icons.gauge} /> Utilização no período
+                  </div>
                   <div className={styles.gaugeRow}>
                     <RadialGauge
                       percentual={calcularUtilizacao(
@@ -168,35 +187,79 @@ export function DriverDrawer({ motoristaId, onClose, aoAtualizarStatus }: Driver
                 </section>
 
                 <section className={styles.section}>
-                  <div className={styles.sectionLabel}>Resultado financeiro</div>
+                  <div className={styles.sectionLabel}>
+                    <FontAwesomeIcon icon={icons.idCard} /> Dados cadastrais
+                  </div>
                   <div className={styles.metricsGrid}>
                     <div className={styles.metric}>
-                      <div className={styles.metricLabel}>Valor do frete</div>
-                      <div className={styles.metricValue}>
-                        {formatadorMoeda.format(motorista.valorFreteTotal)}
+                      <div className={styles.metricLabel}>
+                        <FontAwesomeIcon icon={icons.idCard} /> CPF/CNPJ
                       </div>
+                      <div className={styles.metricValue}>{motorista.cpfCnpj ?? "—"}</div>
                     </div>
                     <div className={styles.metric}>
-                      <div className={styles.metricLabel}>Pedágio (custo confirmado)</div>
-                      <div className={`${styles.metricValue} ${styles.negative}`}>
-                        {formatadorMoeda.format(motorista.valorPedagioTotal)}
+                      <div className={styles.metricLabel}>
+                        <FontAwesomeIcon icon={icons.phone} /> Telefone
                       </div>
+                      <div className={styles.metricValue}>{motorista.telefone ?? "—"}</div>
                     </div>
                   </div>
-                  <p className={styles.note}>
-                    O manifesto atual só confirma o pedágio como custo. Combustível, manutenção e
-                    comissão ainda não são registrados por motorista.
-                  </p>
                 </section>
+
+                {podeVerFinanceiro && (
+                  <section className={styles.section}>
+                    <div className={styles.sectionLabel}>
+                      <FontAwesomeIcon icon={icons.money} /> Resultado financeiro
+                    </div>
+                    <div className={styles.metricsGrid}>
+                      <div className={styles.metric}>
+                        <div className={styles.metricLabel}>Valor do frete</div>
+                        <div className={styles.metricValue}>
+                          {formatadorMoeda.format(motorista.valorFreteTotal)}
+                        </div>
+                      </div>
+                      <div className={styles.metric}>
+                        <div className={styles.metricLabel}>Pedágio (custo confirmado)</div>
+                        <div className={`${styles.metricValue} ${styles.negative}`}>
+                          {formatadorMoeda.format(motorista.valorPedagioTotal)}
+                        </div>
+                      </div>
+                      <div className={`${styles.metric} ${styles.metricWide}`}>
+                        <div className={styles.metricLabel}>
+                          <FontAwesomeIcon icon={icons.coins} /> Rentabilidade (frete − pedágio)
+                        </div>
+                        <div
+                          className={`${styles.metricValue} ${styles.metricValueLg} ${
+                            motorista.rentabilidadeTotal >= 0 ? styles.positive : styles.negative
+                          }`}
+                        >
+                          {formatadorMoeda.format(motorista.rentabilidadeTotal)}
+                        </div>
+                      </div>
+                    </div>
+                    <p className={styles.note}>
+                      <FontAwesomeIcon icon={icons.gauge} className={styles.infoIcon} />O
+                      manifesto atual só confirma o pedágio como custo. Combustível, manutenção e
+                      comissão ainda não são registrados por motorista — a rentabilidade acima
+                      está parcial e tende a ser menor na prática.
+                    </p>
+                  </section>
+                )}
 
                 <section className={styles.section}>
                   <div className={styles.sectionLabel}>
-                    Viagens no período ({motorista.viagens.length})
+                    <FontAwesomeIcon icon={icons.route} /> Viagens no período (
+                    {motorista.viagens.length})
                   </div>
                   <div className={styles.tripList}>
                     {motorista.viagens.slice(0, 8).map((viagem, i) => (
                       <div key={i} className={styles.tripRow}>
-                        <span className={styles.tripDest}>{viagem.destino}</span>
+                        <span className={styles.tripDest}>
+                          {viagem.destino}
+                          {viagem.destino === "São Paulo" && (
+                            <FontAwesomeIcon icon={icons.star} className={styles.starIcon} />
+                          )}
+                        </span>
                         <span className={styles.tripValue}>
                           {formatadorMoeda.format(viagem.valorFrete)}
                         </span>

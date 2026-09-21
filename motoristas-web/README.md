@@ -42,10 +42,26 @@ npm run preview
 src/
 ├── api/          → cliente HTTP tipado (client.ts) e chamadas específicas (motoristas.ts)
 ├── types/        → tipos espelhando os DTOs Java do motoristas-service
+├── context/      → ProfileContext (perfil Gestor/Operador ativo em toda a árvore)
 ├── hooks/        → useMotoristas (listagem + filtros), useMotoristaDetalhe (drawer)
-├── components/   → DriverCard, DriverFilters, DriverDrawer, RadialGauge
+├── components/   → DriverCard, DriverFilters, DriverDrawer, RadialGauge, Pagination,
+│                   Toast e Sidebar/ (navegação + troca de perfil)
 └── pages/        → DriversPage (única página desta versão)
 ```
+
+### Perfil Gestor/Operador
+
+A Sidebar tem um seletor "Visualizando como" (Gestor/Operador), ligado a um
+`ProfileContext` global. Réplica, em React, a regra que no protótipo HTML
+era feita com `body.profile-gestor` + CSS `display:none`: aqui é
+renderização condicional — quando o perfil ativo é Operador, a seção
+"Resultado financeiro" do drawer (frete, pedágio, rentabilidade) some
+inteira, em vez de aparecer mascarada ou desabilitada.
+
+As demais entradas da Sidebar (Frota, Ranking, Importar XML, Exportar
+planilha) ainda não têm tela — clicar nelas só registra um aviso no
+console, coerente com o escopo atual do projeto (só Motoristas está
+implementado, ver "Pendências conhecidas" abaixo).
 
 ## Contrato com o back-end
 
@@ -58,8 +74,8 @@ Endpoints usados:
 
 | Método | Rota | Uso neste front-end |
 |---|---|---|
-| GET | `/api/motoristas?status=&busca=` | Grade de cards da tela de Motoristas |
-| GET | `/api/motoristas/{id}` | Conteúdo do drawer de detalhe |
+| GET | `/api/motoristas?status=&busca=&destino=&page=&size=` | Grade paginada de cards da tela de Motoristas — `busca` casa por nome ou CPF |
+| GET | `/api/motoristas/{id}` | Conteúdo do drawer de detalhe — inclui CPF/CNPJ, telefone e rentabilidade |
 | PATCH | `/api/motoristas/{id}/status` | Botões "Disponível" / "Em operação" no drawer |
 
 ## Pendências conhecidas
@@ -67,11 +83,6 @@ Endpoints usados:
 - Sem gateway ainda: a URL do back-end é configurada direto via
   `VITE_API_BASE_URL` (ver `.env.example`). Quando o `gateway-service`
   existir, só essa variável muda.
-- Filtro por destino existe no back-end (`?destino=`) mas ainda não tem
-  campo de UI aqui — a lista de destinos distintos precisaria vir de um
-  endpoint próprio para popular um `<select>`, o que não existe ainda no
-  `motoristas-service`.
-- Paginação: o back-end retorna a lista completa (102 motoristas no seed);
-  não há paginação real de servidor implementada neste front nem no back
-  ainda — para esse volume a listagem completa é aceitável, mas não
-  escalaria para uma frota muito maior sem paginação de verdade.
+- Filtro por destino é um campo de texto livre e parcial (ex.: "paulo" acha
+  "São Paulo") — não há um `<select>` com a lista de destinos distintos
+  porque o `motoristas-service` ainda não expõe um endpoint para isso.

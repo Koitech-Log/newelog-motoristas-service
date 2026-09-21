@@ -29,6 +29,8 @@ export interface MotoristaDetalhe {
   id: number;
   codigoExterno: string;
   nome: string;
+  cpfCnpj: string | null;
+  telefone: string | null;
   placaVeiculo: string | null;
   tipoVeiculo: string | null;
   marcaVeiculo: string | null;
@@ -37,8 +39,17 @@ export interface MotoristaDetalhe {
   diasOperacao: number;
   valorFreteTotal: number;
   valorPedagioTotal: number;
+  rentabilidadeTotal: number;
   cadastroValidado: boolean;
   viagens: Viagem[];
+}
+
+export interface Pagina<T> {
+  conteudo: T[];
+  paginaAtual: number;
+  totalPaginas: number;
+  totalElementos: number;
+  tamanhoPagina: number;
 }
 
 export interface ApiErro {

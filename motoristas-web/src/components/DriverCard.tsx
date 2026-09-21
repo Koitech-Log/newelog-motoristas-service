@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { RadialGauge } from "./RadialGauge";
-import { icons } from "./icons";
+import { icons, iconePorTipoVeiculo } from "./icons";
 import type { MotoristaResumo } from "../types/motorista";
 import styles from "./DriverCard.module.css";
 
@@ -33,7 +33,7 @@ export function DriverCard({ motorista, onSelecionar, indice = 0 }: DriverCardPr
         <div className={styles.top}>
           <div className={styles.identity}>
             <div className={styles.avatar} aria-hidden>
-              <FontAwesomeIcon icon={icons.truck} />
+              <FontAwesomeIcon icon={iconePorTipoVeiculo(motorista.tipoVeiculo)} />
             </div>
             <div className={styles.nameBlock}>
               <div className={styles.name}>

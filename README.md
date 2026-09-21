@@ -33,8 +33,8 @@ docker compose up --build
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/motoristas` | Lista motoristas. Aceita `?status=DISPONIVEL\|EM_OPERACAO`, `?destino=`, `?busca=` |
-| GET | `/api/motoristas/{id}` | Detalhe de um motorista, com histórico de viagens |
+| GET | `/api/motoristas` | Lista paginada. Aceita `?status=DISPONIVEL\|EM_OPERACAO`, `?destino=` (contém, case-insensitive), `?busca=` (nome ou CPF, com ou sem pontuação), `?page=` (padrão 0), `?size=` (padrão 12) |
+| GET | `/api/motoristas/{id}` | Detalhe de um motorista — CPF/CNPJ, telefone, rentabilidade e histórico de viagens |
 | PATCH | `/api/motoristas/{id}/status` | Atualiza a disponibilidade (`{"status": "DISPONIVEL"}`) |
 | GET | `/actuator/health` | Health check |
 
@@ -52,15 +52,21 @@ função específica do PostgreSQL não suportada pelo H2.
 ## Dados
 
 O seed inicial (`V2__seed_dados_iniciais.sql`) reflete os manifestos reais
-de agosto/2026 fornecidos pelo parceiro, processados para remover qualquer
-dado pessoal sensível. Campos como CPF, PIS, data de nascimento e endereço
-do motorista **não têm equivalente no modelo de dados deste serviço** — essa
-foi uma decisão de produto, não uma omissão.
+de agosto/2026 fornecidos pelo parceiro. Por pedido explícito do parceiro
+(documento "Respostas do Parceiro e Dados Reais", pergunta 9), o cadastro
+armazena CPF/CNPJ do motorista. Telefone também está modelado, mas fica
+`NULL` no seed atual — não está disponível na fonte de dados processada até
+agora. PIS, data de nascimento e endereço continuam fora do modelo, por não
+terem sido pedidos pelo parceiro e não agregarem valor à operação do
+dashboard.
 
 Quilometragem por viagem também não é um campo modelado: os manifestos reais
 analisados não trazem essa informação de forma confiável (ver documento
 "Respostas do Parceiro e Dados Reais", seção 3) — a regra de negócio do
 parceiro proíbe expor números que o sistema não consegue garantir corretos.
+Pela mesma regra, a rentabilidade exposta em `/api/motoristas/{id}`
+(`rentabilidadeTotal = valorFreteTotal - valorPedagioTotal`) é parcial: o
+pedágio é hoje o único custo confirmado por motorista.
 
 ## Pendências conhecidas (ver documentos de projeto)
 
