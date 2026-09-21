@@ -8,22 +8,31 @@ import org.springframework.web.bind.annotation.*;
 
 import br.com.newelog.motoristas.infrastructure.entity.Motorista;
 import br.com.newelog.motoristas.service.MotoristaService;
+import br.com.newelog.motoristas.service.ManifestoValidacaoService;
 
 @RestController
 @RequestMapping("/motoristas")
 public class MotoristaController {
 
     private final MotoristaService service;
+    private final ManifestoValidacaoService manifestoValidacaoService;
 
-    public MotoristaController(MotoristaService service) {
+    public MotoristaController(MotoristaService service, ManifestoValidacaoService manifestoValidacaoService) {
         this.service = service;
-    }
+        this.manifestoValidacaoService = manifestoValidacaoService;
+}
 
     @PostMapping
     public ResponseEntity<Void> salvar(@RequestBody Motorista motorista) {
         service.salvarMotorista(motorista);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @PostMapping("/validar-manifesto")
+    public ResponseEntity<Void> validarManifesto(@RequestBody ManifestoValidacaoDTO dto) {
+        manifestoValidacaoService.validar(dto);
+        return ResponseEntity.ok().build();
+}
 
     @GetMapping("/{id}")
     public ResponseEntity<Motorista> buscarPorId(@PathVariable Integer id) {
