@@ -1,6 +1,6 @@
 HELP.md
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -32,9 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Variáveis de ambiente locais ###
 .env
-.env.*
-application-local.yml
-application-local.properties
-*.iml
-.idea/
+
+### Frontend ###
+motoristas-web/node_modules/
+motoristas-web/dist/
