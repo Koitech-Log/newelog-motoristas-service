@@ -5,10 +5,11 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import br.com.newelog.motoristas.infrastructure.entity.Motorista;
-import br.com.newelog.motoristas.service.MotoristaService;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
+import br.com.newelog.motoristas.service.MotoristaService;
 
 @RestController
 @RequestMapping("/motoristas")
@@ -29,7 +30,7 @@ public class MotoristaController {
     }
 
     @PostMapping("/validar-manifesto")
-    public ResponseEntity<Void> validarManifesto(@RequestBody ManifestoValidacaoDTO dto) {
+    public ResponseEntity<Void> validarManifesto(@Valid @RequestBody ManifestoValidacaoDTO dto) {
         manifestoValidacaoService.validar(dto);
         return ResponseEntity.ok().build();
 }
