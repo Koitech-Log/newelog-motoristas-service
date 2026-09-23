@@ -21,10 +21,12 @@ import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
 import br.com.newelog.motoristas.dto.PaginaDTO;
+import br.com.newelog.motoristas.dto.ResultadoCruzamentoDTO;
 import br.com.newelog.motoristas.model.Motorista;
 import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
 import br.com.newelog.motoristas.service.MotoristaService;
+import br.com.newelog.motoristas.service.ManifestoCruzamentoService;
 
 @RestController
 @RequestMapping("/api/motoristas")
@@ -35,10 +37,13 @@ public class MotoristaController {
 
     private final MotoristaService motoristaService;
     private final ManifestoValidacaoService manifestoValidacaoService;
+    private final ManifestoCruzamentoService manifestoCruzamentoService;
 
-    public MotoristaController(MotoristaService motoristaService, ManifestoValidacaoService manifestoValidacaoService) {
+    public MotoristaController(MotoristaService motoristaService, ManifestoValidacaoService manifestoValidacaoService, ManifestoCruzamentoService manifestoCruzamentoService) {
         this.motoristaService = motoristaService;
         this.manifestoValidacaoService = manifestoValidacaoService;
+        this.manifestoCruzamentoService = manifestoCruzamentoService;
+
     }
 
     @PostMapping
@@ -53,6 +58,13 @@ public class MotoristaController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/verificar-cruzamento")
+    public ResponseEntity<ResultadoCruzamentoDTO> verificarCruzamento(@Valid @RequestBody ManifestoValidacaoDTO dto) {
+        manifestoValidacaoService.validar(dto);
+        ResultadoCruzamentoDTO resultado = manifestoCruzamentoService.verificar(dto);
+        return ResponseEntity.ok(resultado);
+    }
+    
     @GetMapping
     public PaginaDTO<MotoristaResumoDTO> listar(
             @RequestParam(required = false) StatusMotorista status,
