@@ -19,10 +19,8 @@ public record ManifestoValidacaoDTO(
     @NotBlank(message = "cpfMotorista é obrigatório")
     String cpfMotorista,
 
-    @NotBlank(message = "nomeAgregado é obrigatório")
     String nomeAgregado,
 
-    @NotBlank(message = "cpfCnpjAgregado é obrigatório")
     String cpfCnpjAgregado,
 
     @NotBlank(message = "placaVeiculo é obrigatório")
