@@ -48,6 +48,11 @@ public class MotoristaService {
         );
     }
 
+     @Transactional
+    public void salvarMotorista(Motorista motorista) {
+        motoristaRepository.save(motorista);
+    }
+
     @Transactional(readOnly = true)
     public MotoristaDetalheDTO buscarDetalhe(Long id) {
         Motorista motorista = motoristaRepository.findById(id)
