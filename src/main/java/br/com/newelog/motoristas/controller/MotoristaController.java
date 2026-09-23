@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 
 import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
-import br.com.newelog.motoristas.dto.ManifestoValidacaoDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
 import br.com.newelog.motoristas.dto.PaginaDTO;
