@@ -1,31 +1,50 @@
 package br.com.newelog.motoristas.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import jakarta.validation.Valid;
 
+import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
+import br.com.newelog.motoristas.dto.ManifestoValidacaoDTO;
+import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
+import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
+import br.com.newelog.motoristas.dto.PaginaDTO;
 import br.com.newelog.motoristas.infrastructure.entity.Motorista;
+import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
 import br.com.newelog.motoristas.service.MotoristaService;
 
 @RestController
-@RequestMapping("/motoristas")
+@RequestMapping("/api/motoristas")
+@CrossOrigin(originPatterns = "http://localhost:*")
 public class MotoristaController {
 
-    private final MotoristaService service;
+    private static final int TAMANHO_PAGINA_PADRAO = 12;
+
+    private final MotoristaService motoristaService;
     private final ManifestoValidacaoService manifestoValidacaoService;
 
-    public MotoristaController(MotoristaService service, ManifestoValidacaoService manifestoValidacaoService) {
-        this.service = service;
+    public MotoristaController(MotoristaService motoristaService, ManifestoValidacaoService manifestoValidacaoService) {
+        this.motoristaService = motoristaService;
         this.manifestoValidacaoService = manifestoValidacaoService;
-}
+    }
 
     @PostMapping
     public ResponseEntity<Void> salvar(@RequestBody Motorista motorista) {
-        service.salvarMotorista(motorista);
+        motoristaService.salvarMotorista(motorista);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -33,36 +52,35 @@ public class MotoristaController {
     public ResponseEntity<Void> validarManifesto(@Valid @RequestBody ManifestoValidacaoDTO dto) {
         manifestoValidacaoService.validar(dto);
         return ResponseEntity.ok().build();
-}
-
-    @GetMapping("/{id}")
-    public ResponseEntity<Motorista> buscarPorId(@PathVariable Integer id) {
-        return ResponseEntity.ok(service.buscarMotoristaPorId(id));
     }
 
     @GetMapping
-    public ResponseEntity<List<Motorista>> listarTodos() {
-        return ResponseEntity.ok(service.listarTodos());
+    public PaginaDTO<MotoristaResumoDTO> listar(
+            @RequestParam(required = false) StatusMotorista status,
+            @RequestParam(required = false) String destino,
+            @RequestParam(required = false, name = "busca") String busca,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "" + TAMANHO_PAGINA_PADRAO) int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("nome").ascending());
+        return motoristaService.listar(status, destino, busca, pageable);
     }
 
-    @GetMapping("/pesquisar")
-    public ResponseEntity<List<Motorista>> pesquisarPorNome(@RequestParam String nome) {
-        return ResponseEntity.ok(service.pesquisarPorNome(nome));
+    @GetMapping("/{id}")
+    public MotoristaDetalheDTO buscarDetalhe(@PathVariable Long id) {
+        return motoristaService.buscarDetalhe(id);
     }
 
-    @GetMapping("/cpf-cnpj/{cpfCnpj}")
-    public ResponseEntity<Motorista> buscarPorCpfCnpj(@PathVariable String cpfCnpj) {
-        return ResponseEntity.ok(service.buscarMotoristaPorCpfCnpj(cpfCnpj));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Motorista> atualizar(@PathVariable Integer id, @RequestBody Motorista motorista) {
-        return ResponseEntity.ok(service.atualizarMotorista(id, motorista));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> remover(@PathVariable Integer id) {
-        service.removerMotorista(id);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    /**
+     * Atualiza a disponibilidade do motorista. Permitido tanto para o perfil
+     * Operador quanto Gestor (ver documento "Respostas do Parceiro", seção 1.4) —
+     * a checagem de perfil acontece no gateway, não aqui.
+     */
+    @PatchMapping("/{id}/status")
+    public MotoristaDetalheDTO atualizarStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody AtualizarStatusRequestDTO request
+    ) {
+        return motoristaService.atualizarStatus(id, request.status());
     }
 }
