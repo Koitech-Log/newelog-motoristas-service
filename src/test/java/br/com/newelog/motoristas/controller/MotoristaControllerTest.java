@@ -83,7 +83,7 @@ class MotoristaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cpfCnpj", is("123.456.789-00")))
                 .andExpect(jsonPath("$.telefone", is("(12) 99999-0000")))
-                .andExpect(jsonPath("$.rentabilidadeTotal", is(0)));
+                .andExpect(jsonPath("$.rentabilidadeTotal", is(1380.0)));
     }
 
     @Test
