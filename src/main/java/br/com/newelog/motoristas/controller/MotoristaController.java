@@ -21,7 +21,7 @@ import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
 import br.com.newelog.motoristas.dto.PaginaDTO;
-import br.com.newelog.motoristas.infrastructure.entity.Motorista;
+import br.com.newelog.motoristas.model.Motorista;
 import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
 import br.com.newelog.motoristas.service.MotoristaService;

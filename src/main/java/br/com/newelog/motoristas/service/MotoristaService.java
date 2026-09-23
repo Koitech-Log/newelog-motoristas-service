@@ -28,6 +28,11 @@ public class MotoristaService {
         this.motoristaRepository = motoristaRepository;
     }
 
+    @Transactional
+    public void salvarMotorista(Motorista motorista) {
+        motoristaRepository.save(motorista);
+    }
+
     @Transactional(readOnly = true)
     public PaginaDTO<MotoristaResumoDTO> listar(
             StatusMotorista status, String destino, String busca, Pageable pageable
