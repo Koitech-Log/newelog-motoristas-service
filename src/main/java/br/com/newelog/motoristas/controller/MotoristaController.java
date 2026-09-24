@@ -15,8 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
-
 import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
 import br.com.newelog.motoristas.dto.ManifestoCadastroDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
@@ -27,6 +25,7 @@ import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.service.ManifestoCadastroService;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
 import br.com.newelog.motoristas.service.MotoristaService;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/motoristas")
@@ -80,11 +79,12 @@ public class MotoristaController {
             @RequestParam(required = false) StatusMotorista status,
             @RequestParam(required = false) String destino,
             @RequestParam(required = false, name = "busca") String busca,
+            @RequestParam(required = false) String tipoVeiculo,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "" + TAMANHO_PAGINA_PADRAO) int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("nome").ascending());
-        return motoristaService.listar(status, destino, busca, pageable);
+        return motoristaService.listar(status, destino, busca, tipoVeiculo, pageable);
     }
 
     @GetMapping("/{id}")
