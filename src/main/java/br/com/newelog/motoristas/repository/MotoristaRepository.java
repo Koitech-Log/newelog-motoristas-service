@@ -4,8 +4,6 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import br.com.newelog.motoristas.model.Motorista;
 
@@ -21,7 +19,11 @@ public interface MotoristaRepository extends JpaRepository<Motorista, Long>,
 
     boolean existsByCodigoExterno(String codigoExterno);
 
-    @Query(value = "SELECT * FROM motorista WHERE regexp_replace(cpf_cnpj, '[^0-9]', '', 'g') = :cpf",
-           nativeQuery = true)
-    Optional<Motorista> findByCpfCnpj(@Param("cpf") String cpf);
+    /**
+     * Usada no upsert da importação de manifesto — o casamento é feito pelo
+     * CPF/CNPJ (documento estável do motorista), não pelo codigoExterno
+     * (slug do nome), que pode variar se o nome vier grafado de forma
+     * diferente entre manifestos.
+     */
+    Optional<Motorista> findByCpfCnpj(String cpfCnpj);
 }
