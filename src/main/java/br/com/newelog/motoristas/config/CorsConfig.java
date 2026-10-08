@@ -1,4 +1,4 @@
-package br.com.newelog.config;
+package br.com.newelog.motoristas.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
