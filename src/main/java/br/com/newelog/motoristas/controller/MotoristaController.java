@@ -16,10 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.com.newelog.motoristas.dto.AtualizarStatusRequestDTO;
 import br.com.newelog.motoristas.dto.ManifestoCadastroDTO;
+import br.com.newelog.motoristas.dto.ManifestoValidacaoDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
 import br.com.newelog.motoristas.dto.PaginaDTO;
-import br.com.newelog.motoristas.model.Motorista;
+import br.com.newelog.motoristas.dto.MotoristaCadastroRequestDTO;
 import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.service.ManifestoCadastroService;
 import br.com.newelog.motoristas.service.ManifestoValidacaoService;
@@ -32,6 +33,7 @@ import jakarta.validation.Valid;
 public class MotoristaController {
 
     private static final int TAMANHO_PAGINA_PADRAO = 12;
+    private static final int TAMANHO_PAGINA_MAXIMO = 500; // o frota-web carrega lotes de 500 (App.tsx, DriversPage.tsx)
 
     private final MotoristaService motoristaService;
     private final ManifestoValidacaoService manifestoValidacaoService;
@@ -48,8 +50,8 @@ public class MotoristaController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> salvar(@RequestBody Motorista motorista) {
-        motoristaService.salvarMotorista(motorista);
+    public ResponseEntity<Void> salvar(@Valid @RequestBody MotoristaCadastroRequestDTO dto) {
+        motoristaService.cadastrar(dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -82,7 +84,9 @@ public class MotoristaController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "" + TAMANHO_PAGINA_PADRAO) int size
     ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("nome").ascending());
+        int pagina = Math.max(page, 0);
+        int tamanho = Math.min(Math.max(size, 1), TAMANHO_PAGINA_MAXIMO);
+        Pageable pageable = PageRequest.of(pagina, tamanho, Sort.by("nome").ascending());
         return motoristaService.listar(status, destino, busca, tipoVeiculo, pageable);
     }
 
@@ -94,7 +98,7 @@ public class MotoristaController {
     /**
      * Atualiza a disponibilidade do motorista. Permitido tanto para o perfil
      * Operador quanto Gestor (ver documento "Respostas do Parceiro", seção 1.4) —
-     * a checagem de perfil acontece no gateway, não aqui.
+     * a regra está em SecurityConfig (hasAnyRole GESTOR, OPERADOR).
      */
     @PatchMapping("/{id}/status")
     public MotoristaDetalheDTO atualizarStatus(

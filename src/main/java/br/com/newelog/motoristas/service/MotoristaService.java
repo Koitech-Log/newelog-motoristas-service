@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.newelog.motoristas.dto.MotoristaCadastroRequestDTO;
 import br.com.newelog.motoristas.dto.MotoristaDetalheDTO;
 import br.com.newelog.motoristas.dto.MotoristaResumoDTO;
 import br.com.newelog.motoristas.dto.PaginaDTO;
@@ -18,14 +19,17 @@ import br.com.newelog.motoristas.model.StatusMotorista;
 import br.com.newelog.motoristas.model.Veiculo;
 import br.com.newelog.motoristas.repository.MotoristaRepository;
 import br.com.newelog.motoristas.repository.MotoristaSpecifications;
+import br.com.newelog.motoristas.repository.VeiculoRepository;
 
 @Service
 public class MotoristaService {
 
     private final MotoristaRepository motoristaRepository;
+    private final VeiculoRepository veiculoRepository;
 
-    public MotoristaService(MotoristaRepository motoristaRepository) {
+    public MotoristaService(MotoristaRepository motoristaRepository, VeiculoRepository veiculoRepository) {
         this.motoristaRepository = motoristaRepository;
+        this.veiculoRepository = veiculoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -49,8 +53,37 @@ public class MotoristaService {
         );
     }
 
-     @Transactional
-    public void salvarMotorista(Motorista motorista) {
+    /**
+     * Cadastro manual. Só os campos do DTO são aceitos (id, viagens e
+     * cadastroValidado nunca vêm do cliente). Rejeita CPF/CNPJ ou código
+     * externo já cadastrados e veículo inexistente.
+     */
+    @Transactional
+    public void cadastrar(MotoristaCadastroRequestDTO dto) {
+        List<String> erros = new java.util.ArrayList<>();
+        if (dto.cpfCnpj() != null && motoristaRepository.findByCpfCnpj(dto.cpfCnpj()).isPresent()) {
+            erros.add("Já existe motorista cadastrado com este CPF/CNPJ.");
+        }
+        if (dto.codigoExterno() != null && motoristaRepository.existsByCodigoExterno(dto.codigoExterno())) {
+            erros.add("Já existe motorista cadastrado com este codigoExterno.");
+        }
+        Veiculo veiculo = null;
+        if (dto.veiculoId() != null) {
+            veiculo = veiculoRepository.findById(dto.veiculoId()).orElse(null);
+            if (veiculo == null) erros.add("Veículo não encontrado: id=" + dto.veiculoId());
+        }
+        if (!erros.isEmpty()) throw new ValidacaoException(erros);
+
+        Motorista motorista = new Motorista();
+        motorista.setNome(dto.nome().trim());
+        motorista.setCodigoExterno(dto.codigoExterno());
+        motorista.setCpfCnpj(dto.cpfCnpj());
+        motorista.setTelefone(dto.telefone());
+        motorista.setVeiculo(veiculo);
+        motorista.setStatus(dto.status() != null ? dto.status() : StatusMotorista.DISPONIVEL);
+        motorista.setDiasDisponiveis(dto.diasDisponiveis() != null ? dto.diasDisponiveis() : 0);
+        motorista.setDiasOperacao(dto.diasOperacao() != null ? dto.diasOperacao() : 0);
+        motorista.setCadastroValidado(true);
         motoristaRepository.save(motorista);
     }
 

@@ -45,7 +45,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        .anyRequest().authenticated())
+                        // Cadastro manual direto: só Gestor. Demais rotas (consulta, mudança de
+                        // status, validar/cadastrar de manifesto): Gestor ou Operador.
+                        .requestMatchers(HttpMethod.POST, "/api/motoristas").hasRole("GESTOR")
+                        .anyRequest().hasAnyRole("GESTOR", "OPERADOR"))
                 .exceptionHandling(e -> e.authenticationEntryPoint(erros).accessDeniedHandler(erros))
                 .oauth2ResourceServer(o -> o
                         .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(conversor()))

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -30,6 +31,12 @@ public class ApiExceptionHandler {
         Map<String, Object> corpo = corpoDeErro("Falha na validação das regras de negócio.");
         corpo.put("erros", ex.getErros());
         return ResponseEntity.badRequest().body(corpo);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConflito(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(corpoDeErro("Conflito: já existe registro com estes dados únicos (CPF/CNPJ, código ou placa)."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -1,6 +1,7 @@
 package br.com.newelog.motoristas.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -74,11 +76,38 @@ class SegurancaJwtTest {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
 
+    @Test
+    void operadorPodeConsultar() throws Exception {
+        mockMvc.perform(get("/api/motoristas")
+                        .header("Authorization", "Bearer " + token(SEGREDO, "newelog-auth-service", 300, "OPERADOR")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void operadorNaoPodeCadastrarManualmente() throws Exception {
+        mockMvc.perform(post("/api/motoristas")
+                        .header("Authorization", "Bearer " + token(SEGREDO, "newelog-auth-service", 300, "OPERADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Fulano\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void perfilDesconhecidoRetorna403() throws Exception {
+        mockMvc.perform(get("/api/motoristas")
+                        .header("Authorization", "Bearer " + token(SEGREDO, "newelog-auth-service", 300, "OUTRO")))
+                .andExpect(status().isForbidden());
+    }
+
     private static String token(String segredo, String emissor, long segundosAteExpirar) throws Exception {
+        return token(segredo, emissor, segundosAteExpirar, "GESTOR");
+    }
+
+    private static String token(String segredo, String emissor, long segundosAteExpirar, String perfil) throws Exception {
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), new JWTClaimsSet.Builder()
                 .issuer(emissor)
                 .subject("1")
-                .claim("perfil", "GESTOR")
+                .claim("perfil", perfil)
                 .expirationTime(Date.from(Instant.now().plusSeconds(segundosAteExpirar)))
                 .build());
         jwt.sign(new MACSigner(segredo.getBytes(StandardCharsets.UTF_8)));

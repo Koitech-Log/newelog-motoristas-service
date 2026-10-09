@@ -3,6 +3,7 @@ package br.com.newelog.motoristas.controller;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -175,5 +176,67 @@ class MotoristaControllerTest {
         veiculo.setMarca(marca);
         veiculo.setTipo(tipo);
         return veiculo;
+    }
+
+    @Test
+    void postManualIgnoraCamposDeControleEFixaCadastroValidado() throws Exception {
+        mockMvc.perform(post("/api/motoristas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Novo Motorista\",\"cpfCnpj\":\"111.222.333-44\","
+                                + "\"id\":999999,\"cadastroValidado\":false}"))
+                .andExpect(status().isCreated());
+
+        Motorista criado = motoristaRepository.findByCpfCnpj("111.222.333-44").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertNotEquals(999999L, criado.getId());
+        org.junit.jupiter.api.Assertions.assertTrue(criado.isCadastroValidado());
+        org.junit.jupiter.api.Assertions.assertEquals(StatusMotorista.DISPONIVEL, criado.getStatus());
+    }
+
+    @Test
+    void postManualComCpfJaCadastradoRetorna400() throws Exception {
+        mockMvc.perform(post("/api/motoristas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Duplicado\",\"cpfCnpj\":\"123.456.789-00\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void postManualSemNomeRetorna400() throws Exception {
+        mockMvc.perform(post("/api/motoristas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cpfCnpj\":\"111.222.333-44\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listarLimitaTamanhoDaPaginaEAceitaPaginaNegativa() throws Exception {
+        mockMvc.perform(get("/api/motoristas").param("size", "100000").param("page", "-3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tamanhoPagina", is(500)))
+                .andExpect(jsonPath("$.paginaAtual", is(0)));
+    }
+
+    @Test
+    void cadastrarDeManifestoComPlacaComHifenReaproveitaVeiculoEMotorista() throws Exception {
+        long veiculosAntes = veiculoRepository.count();
+
+        mockMvc.perform(post("/api/motoristas/cadastrar-de-manifesto")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"codigoExterno\":\"motorista-teste\",\"data\":\"2026-08-02\","
+                                + "\"nomeMotorista\":\"Motorista de Teste\",\"cpfMotorista\":\"12345678900\","
+                                + "\"placaVeiculo\":\"TST-1A23\",\"valorFrete\":900.0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(motoristaId.intValue())));
+
+        org.junit.jupiter.api.Assertions.assertEquals(veiculosAntes, veiculoRepository.count());
+    }
+
+    @Test
+    void cadastrarDeManifestoComPlacaInvalidaRetorna400() throws Exception {
+        mockMvc.perform(post("/api/motoristas/cadastrar-de-manifesto")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"codigoExterno\":\"x\",\"data\":\"2026-08-02\",\"nomeMotorista\":\"X\","
+                                + "\"cpfMotorista\":\"12345678900\",\"placaVeiculo\":\"1234\",\"valorFrete\":1.0}"))
+                .andExpect(status().isBadRequest());
     }
 }

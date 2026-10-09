@@ -1,4 +1,4 @@
-package br.com.newelog.motoristas.controller; // Sugestão: Mover para o pacote br.com.newelog.motoristas.dto
+package br.com.newelog.motoristas.dto; // Sugestão: Mover para o pacote br.com.newelog.motoristas.dto
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
