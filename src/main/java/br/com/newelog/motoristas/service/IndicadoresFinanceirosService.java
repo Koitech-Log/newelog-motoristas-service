@@ -23,6 +23,12 @@ public class IndicadoresFinanceirosService {
         return zeroSeNulo(viagemRepository.somarPedagioPorPeriodo(p.inicio(), p.fim()));
     }
 
+    /** Task 3*/
+    public BigDecimal calcularFreteTotal(int ano, int mes) {
+        PeriodoMensal p = PeriodoMensal.de(ano, mes);
+        return zeroSeNulo(viagemRepository.somarFretePorPeriodo(p.inicio(), p.fim()));
+    }
+
     private BigDecimal zeroSeNulo(BigDecimal valor) {
         return valor == null ? BigDecimal.ZERO : valor;
     }
