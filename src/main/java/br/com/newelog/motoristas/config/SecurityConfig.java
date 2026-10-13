@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        .requestMatchers("/api/dashboard", "/api/dashboard/**").hasRole("GESTOR")
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(erros).accessDeniedHandler(erros))
                 .oauth2ResourceServer(o -> o
