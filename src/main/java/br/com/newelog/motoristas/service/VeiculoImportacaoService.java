@@ -33,15 +33,18 @@ public class VeiculoImportacaoService {
     private static final int TAMANHO_MAXIMO_PLACA = 10;
     private static final int TAMANHO_MAXIMO_MARCA = 60;
 
-    private final VeiculoRepository veiculoRepository;
+    private final VeiculoRepository veiculoRepository;          
     private final VeiculoTipoRepository veiculoTipoRepository;
+    private final VeiculoValidacaoService validacaoService;
 
     public VeiculoImportacaoService(
             VeiculoRepository veiculoRepository,
-            VeiculoTipoRepository veiculoTipoRepository
+            VeiculoTipoRepository veiculoTipoRepository,
+            VeiculoValidacaoService validacaoService
     ) {
         this.veiculoRepository = veiculoRepository;
         this.veiculoTipoRepository = veiculoTipoRepository;
+        this.validacaoService = validacaoService;
     }
 
     @Transactional
@@ -50,6 +53,13 @@ public class VeiculoImportacaoService {
         List<ResultadoImportacaoVeiculosDTO.Erro> erros = new ArrayList<>();
 
         for (ImportacaoVeiculosRequestDTO.Item item : itens) {
+            
+            List<String> motivos = validacaoService.validar(item);
+            if (!motivos.isEmpty()) {
+                erros.add(erro(item, String.join(" ", motivos)));
+                continue;
+            }
+
             String placa = limpar(item.placa());
             String marca = limpar(item.marca());
             String tipoNome = limpar(item.tipo());
