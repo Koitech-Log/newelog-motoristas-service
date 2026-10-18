@@ -28,6 +28,11 @@ public class IndicadoresFinanceirosService {
         PeriodoMensal p = PeriodoMensal.de(ano, mes);
         return zeroSeNulo(viagemRepository.somarFretePorPeriodo(p.inicio(), p.fim()));
     }
+    /** KOI-128*/
+    public long contarViagens(int ano, int mes) {
+        PeriodoMensal p = PeriodoMensal.de(ano, mes);
+        return viagemRepository.contarViagensPorPeriodo(p.inicio(), p.fim());
+    }
 
     private BigDecimal zeroSeNulo(BigDecimal valor) {
         return valor == null ? BigDecimal.ZERO : valor;
