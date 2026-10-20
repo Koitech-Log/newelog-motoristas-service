@@ -45,8 +45,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        .requestMatchers("/api/dashboard", "/api/dashboard/**").hasRole("GESTOR")
                         // Cadastro de veículos por CSV (US09): só o perfil GESTOR.
                         .requestMatchers(HttpMethod.POST, "/api/veiculos/**").hasRole("GESTOR")
+
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(erros).accessDeniedHandler(erros))
                 .oauth2ResourceServer(o -> o
