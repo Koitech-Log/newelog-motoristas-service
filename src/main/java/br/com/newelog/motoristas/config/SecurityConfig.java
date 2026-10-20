@@ -1,3 +1,4 @@
+
 package br.com.newelog.motoristas.config;
 
 import java.nio.charset.StandardCharsets;
@@ -25,8 +26,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Exige o JWT emitido pelo newelog-auth-service (HS256, mesmo JWT_SECRET,
- * iss = newelog-auth-service). A claim "perfil" (GESTOR | OPERADOR) vira ROLE_*.
+ * Exige JWT emitido pelo newelog-auth-service (HS256, mesmo JWT_SECRET,
+ * iss = newelog-auth-service). A claim "perfil" (GESTOR | OPERADOR)
+ * é convertida para ROLE_*.
  */
 @Configuration
 @EnableWebSecurity
@@ -35,23 +37,46 @@ public class SecurityConfig {
     static final String EMISSOR = "newelog-auth-service";
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtDecoder jwtDecoder) throws Exception {
+
         RespostaErroSeguranca erros = new RespostaErroSeguranca();
 
         http
-                .csrf(csrf -> csrf.disable()) // API stateless com Bearer token, sem cookies de sessão
+                .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(s ->
+                        s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        // Cadastro manual direto: só Gestor. Demais rotas (consulta, mudança de
-                        // status, validar/cadastrar de manifesto): Gestor ou Operador.
-                        .requestMatchers(HttpMethod.POST, "/api/motoristas").hasRole("GESTOR")
-                        .anyRequest().hasAnyRole("GESTOR", "OPERADOR"))
-                .exceptionHandling(e -> e.authenticationEntryPoint(erros).accessDeniedHandler(erros))
+                        .requestMatchers(
+                                "/actuator/health/**",
+                                "/actuator/info"
+                        ).permitAll()
+
+                        // Cadastro manual de motoristas: somente GESTOR.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/motoristas"
+                        ).hasRole("GESTOR")
+
+                        // Cadastro de veículos por CSV: somente GESTOR.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/veiculos/**"
+                        ).hasRole("GESTOR")
+
+                        // Demais rotas: GESTOR ou OPERADOR.
+                        .anyRequest().hasAnyRole("GESTOR", "OPERADOR")
+                )
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(erros)
+                        .accessDeniedHandler(erros))
                 .oauth2ResourceServer(o -> o
-                        .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(conversor()))
+                        .jwt(j -> j
+                                .decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(conversor()))
                         .authenticationEntryPoint(erros)
                         .accessDeniedHandler(erros));
 
@@ -59,39 +84,60 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(@Value("${app.jwt.secret}") String segredo) {
+    public JwtDecoder jwtDecoder(
+            @Value("${app.jwt.secret}") String segredo) {
+
         byte[] bytes = segredo.getBytes(StandardCharsets.UTF_8);
+
         if (bytes.length < 32) {
-            throw new IllegalStateException("JWT_SECRET precisa ter pelo menos 32 caracteres.");
+            throw new IllegalStateException(
+                    "JWT_SECRET precisa ter pelo menos 32 caracteres.");
         }
+
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withSecretKey(new SecretKeySpec(bytes, "HmacSHA256"))
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(EMISSOR));
+
+        decoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(EMISSOR));
+
         return decoder;
     }
 
     private JwtAuthenticationConverter conversor() {
-        JwtGrantedAuthoritiesConverter autoridades = new JwtGrantedAuthoritiesConverter();
+        JwtGrantedAuthoritiesConverter autoridades =
+                new JwtGrantedAuthoritiesConverter();
+
         autoridades.setAuthoritiesClaimName("perfil");
         autoridades.setAuthorityPrefix("ROLE_");
-        JwtAuthenticationConverter conversor = new JwtAuthenticationConverter();
+
+        JwtAuthenticationConverter conversor =
+                new JwtAuthenticationConverter();
+
         conversor.setJwtGrantedAuthoritiesConverter(autoridades);
+
         return conversor;
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
+            @Value("${app.frontend-url:http://localhost:5173}")
+            String frontendUrl) {
+
         CorsConfiguration config = new CorsConfiguration();
+
         config.setAllowedOrigins(List.of(frontendUrl));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 }
