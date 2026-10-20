@@ -30,12 +30,13 @@ public class MotoristaService {
 
     @Transactional(readOnly = true)
     public PaginaDTO<MotoristaResumoDTO> listar(
-            StatusMotorista status, String destino, String busca, Pageable pageable
+            StatusMotorista status, String destino, String busca,String tipoVeiculo, Pageable pageable
     ) {
         Specification<Motorista> spec = Specification
                 .where(MotoristaSpecifications.comStatus(status))
                 .and(MotoristaSpecifications.comDestino(destino))
-                .and(MotoristaSpecifications.comNomeOuCpfContendo(busca));
+                .and(MotoristaSpecifications.comNomeOuCpfContendo(busca))
+                .and(MotoristaSpecifications.comTipoVeiculo(tipoVeiculo));
 
         Page<Motorista> pagina = motoristaRepository.findAll(spec, pageable);
 
@@ -46,6 +47,11 @@ public class MotoristaService {
                 pagina.getTotalElements(),
                 pagina.getSize()
         );
+    }
+
+     @Transactional
+    public void salvarMotorista(Motorista motorista) {
+        motoristaRepository.save(motorista);
     }
 
     @Transactional(readOnly = true)

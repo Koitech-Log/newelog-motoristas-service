@@ -15,6 +15,12 @@ em Microsserviços"*.
 
 ```bash
 docker compose up -d motoristas-db
+
+cp .env.example .env
+# edite o .env: preencha DB_PASSWORD e JWT_SECRET (igual ao do auth-service)
+
+set -a; source .env; set +a
+
 ./mvnw spring-boot:run
 ```
 
@@ -29,14 +35,33 @@ PIS, data de nascimento ou endereço — ver seção "Dados" abaixo).
 docker compose up --build
 ```
 
+## Autenticação
+
+As rotas de `/api/**` exigem o header `Authorization: Bearer <token>`, com o JWT emitido pelo [`newelog-auth-service`](https://github.com/Koitech-Log/newelog-auth-service). O serviço valida a assinatura (HS256) com o `JWT_SECRET`, que precisa ser o mesmo do auth-service. Sem token válido, a resposta é `401`. Apenas `/actuator/health` é público.
+
+## Variáveis de ambiente
+
+Copie `.env.example` para `.env` (o `.env` não é versionado).
+
+| Variável                | Obrigatória | Padrão                  | Descrição                                       |
+| ----------------------- | ----------- | ----------------------- | ----------------------------------------------- |
+| `PORT`                  | não         | `8080`                  | Porta do serviço                                |
+| `FRONTEND_URL`          | não         | `http://localhost:5173` | Origem do front-end (CORS)                      |
+| `JWT_SECRET`            | **sim**     | —                       | Mín. 32 caracteres. Igual ao do `auth-service`  |
+| `DB_URL`                | **sim**     | —                       | URL JDBC do PostgreSQL                          |
+| `DB_USERNAME` / `DB_PASSWORD` | **sim** | —                       | Credenciais do banco                            |
+| `DB_POOL_MAX_SIZE`      | não         | `10`                    | Máximo de conexões do pool                      |
+| `DB_POOL_MIN_IDLE`      | não         | `2`                     | Mínimo de conexões ociosas                      |
+| `DB_CONNECTION_TIMEOUT` | não         | `30000`                 | Timeout de conexão (ms)                         |
+
 ## Endpoints
 
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/api/motoristas` | Lista paginada. Aceita `?status=DISPONIVEL\|EM_OPERACAO`, `?destino=` (contém, case-insensitive), `?busca=` (nome ou CPF, com ou sem pontuação), `?page=` (padrão 0), `?size=` (padrão 12) |
-| GET | `/api/motoristas/{id}` | Detalhe de um motorista — CPF/CNPJ, telefone, rentabilidade e histórico de viagens |
-| PATCH | `/api/motoristas/{id}/status` | Atualiza a disponibilidade (`{"status": "DISPONIVEL"}`) |
-| GET | `/actuator/health` | Health check |
+| Método | Rota | Descrição | Acesso |
+|---|---|---|---|
+| GET | `/api/motoristas` | Lista paginada. Aceita ... | Autenticado |
+| GET | `/api/motoristas/{id}` | Detalhe de um motorista ... | Autenticado |
+| PATCH | `/api/motoristas/{id}/status` | Atualiza a disponibilidade ... | Autenticado |
+| GET | `/actuator/health` | Health check | Público |
 
 ## Testes
 

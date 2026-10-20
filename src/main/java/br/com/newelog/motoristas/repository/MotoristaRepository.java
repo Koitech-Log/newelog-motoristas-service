@@ -18,4 +18,12 @@ public interface MotoristaRepository extends JpaRepository<Motorista, Long>,
     Optional<Motorista> findByCodigoExterno(String codigoExterno);
 
     boolean existsByCodigoExterno(String codigoExterno);
+
+    /**
+     * Usada no upsert da importação de manifesto — o casamento é feito pelo
+     * CPF/CNPJ (documento estável do motorista), não pelo codigoExterno
+     * (slug do nome), que pode variar se o nome vier grafado de forma
+     * diferente entre manifestos.
+     */
+    Optional<Motorista> findByCpfCnpj(String cpfCnpj);
 }

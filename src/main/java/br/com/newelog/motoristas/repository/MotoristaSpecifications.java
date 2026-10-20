@@ -4,6 +4,8 @@ import org.springframework.data.jpa.domain.Specification;
 
 import br.com.newelog.motoristas.model.Motorista;
 import br.com.newelog.motoristas.model.StatusMotorista;
+import br.com.newelog.motoristas.model.Veiculo;
+import br.com.newelog.motoristas.model.VeiculoTipo;
 import br.com.newelog.motoristas.model.Viagem;
 import jakarta.persistence.criteria.Join;
 
@@ -94,6 +96,16 @@ public final class MotoristaSpecifications {
             query.distinct(true);
             Join<Motorista, Viagem> viagens = root.join("viagens");
             return cb.like(cb.lower(viagens.get("destino")), padrao);
+        };
+    }
+    public static Specification<Motorista> comTipoVeiculo(String tipoVeiculo) {
+        if (tipoVeiculo == null || tipoVeiculo.isBlank()) {
+            return null;
+        }
+        return (root, query, cb) -> {
+            Join<Motorista, Veiculo> veiculo = root.join("veiculo");
+            Join<Veiculo, VeiculoTipo> tipo = veiculo.join("tipo");
+            return cb.equal(cb.lower(tipo.get("nome")), tipoVeiculo.toLowerCase());
         };
     }
 }

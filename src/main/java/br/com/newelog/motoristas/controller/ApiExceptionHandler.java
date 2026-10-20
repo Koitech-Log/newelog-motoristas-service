@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import br.com.newelog.motoristas.service.RecursoNaoEncontradoException;
+import br.com.newelog.motoristas.service.ValidacaoException;
 
 /**
  * Converte exceções de domínio em respostas HTTP consistentes, com o mesmo
@@ -22,6 +23,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ResponseEntity<Map<String, Object>> handleNaoEncontrado(RecursoNaoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpoDeErro(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ValidacaoException.class)
+    public ResponseEntity<Map<String, Object>> handleValidacaoNegocio(ValidacaoException ex) {
+        Map<String, Object> corpo = corpoDeErro("Falha na validação das regras de negócio.");
+        corpo.put("erros", ex.getErros());
+        return ResponseEntity.badRequest().body(corpo);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

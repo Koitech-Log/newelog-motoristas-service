@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ import br.com.newelog.motoristas.repository.VeiculoTipoRepository;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@WithMockUser(roles = "GESTOR") // o serviço agora exige JWT; a autenticação em si é testada em SegurancaJwtTest
 class MotoristaControllerTest {
 
     @Autowired
@@ -83,7 +85,7 @@ class MotoristaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cpfCnpj", is("123.456.789-00")))
                 .andExpect(jsonPath("$.telefone", is("(12) 99999-0000")))
-                .andExpect(jsonPath("$.rentabilidadeTotal", is(0)));
+                .andExpect(jsonPath("$.rentabilidadeTotal", is(1380.0)));
     }
 
     @Test
