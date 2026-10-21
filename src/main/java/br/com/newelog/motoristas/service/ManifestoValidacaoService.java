@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import br.com.newelog.motoristas.controller.ManifestoValidacaoDTO;
+import br.com.newelog.motoristas.dto.ManifestoValidacaoDTO;
 
 @Service
 public class ManifestoValidacaoService {

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import java.time.LocalDate;
 
 /**
- * Corpo esperado por POST /api/motoristas quando chamado pelo manifesto-service
+ * Corpo esperado por POST /api/motoristas/cadastrar-de-manifesto, chamado pelo manifesto-service
  * para efetivar o cadastro de uma linha de manifesto já validada (ver
  * POST /api/motoristas/validar-manifesto, chamado antes deste). Espelha os
  * mesmos campos de ManifestoValidacaoDTO, mais a data já convertida para
@@ -36,6 +36,8 @@ public record ManifestoCadastroDTO(
         String cpfMotorista,
 
         @NotBlank(message = "placaVeiculo é obrigatório")
+        // Aceita ABC1234, ABC1D23, ABC-1234 ou ABC-1D23 (mesmo critério de validar-manifesto)
+        @Pattern(regexp = "^[A-Za-z]{3}-?\\d([A-Za-z]\\d{2}|\\d{3})$", message = "placaVeiculo em formato inválido")
         String placaVeiculo,
 
         String status,

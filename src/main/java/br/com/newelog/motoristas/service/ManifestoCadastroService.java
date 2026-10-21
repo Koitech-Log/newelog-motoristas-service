@@ -92,7 +92,8 @@ public class ManifestoCadastroService {
 
     private Veiculo resolverVeiculo(String placa) {
         if (!StringUtils.hasText(placa)) return null;
-        String placaNormalizada = placa.trim().toUpperCase();
+        // Mesma normalização do cruzamento e do seed: maiúsculas, sem hífen/espaços
+        String placaNormalizada = placa.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
         return veiculoRepository.findByPlaca(placaNormalizada)
                 .orElseGet(() -> {
                     Veiculo novo = new Veiculo();
