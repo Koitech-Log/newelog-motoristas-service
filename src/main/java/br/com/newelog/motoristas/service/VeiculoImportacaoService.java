@@ -37,8 +37,11 @@ import br.com.newelog.motoristas.repository.VeiculoTipoRepository;
  * Se a placa já existe no banco, o veículo é atualizado com a marca e o tipo
  * do CSV, em vez de ser rejeitado. Isso completa os veículos criados por
  * importação de manifesto, que só têm a placa. Marca em branco no CSV não apaga
- * a marca que já está salva. O total "cadastrados" da resposta conta tanto os
- * veículos novos quanto os atualizados.
+ * a marca que já está salva.
+ *
+ * Resultado da importação: "cadastrados" conta só os veículos novos,
+ * "atualizados" conta os que já existiam (mesma placa) e "erros" lista as
+ * linhas rejeitadas, com a linha e o motivo.
  *
  * A placa é normalizada como em ManifestoCadastroService (trim + maiúsculas).
  * Um erro inesperado de banco na gravação desfaz o lote inteiro.
@@ -79,18 +82,17 @@ public class VeiculoImportacaoService {
             }
         }
 
-        // Fase 2: grava de uma só vez todos os veículos válidos (novos e atualizados).
-        List<Veiculo> salvos = veiculoRepository.saveAll(validos);
+        // Antes de gravar, separa os que já existiam (têm id) dos novos (ainda
+        // sem id): depois do saveAll, todos passam a ter id.
+        int atualizados = (int) validos.stream().filter(v -> v.getId() != null).count();
+        int cadastrados = validos.size() - atualizados;
 
-        return new ResultadoImportacaoVeiculosDTO(salvos.size(), erros);
+        // Fase 2: grava de uma só vez todos os veículos válidos (novos e atualizados).
+        veiculoRepository.saveAll(validos);
+
+        return new ResultadoImportacaoVeiculosDTO(cadastrados, atualizados, erros);
     }
 
-    /**
-     * Valida uma linha. Se estiver correta, devolve o veículo pronto para ser
-     * salvo (novo, ou o já cadastrado com a marca e o tipo atualizados); se não,
-     * registra o motivo em "erros" e devolve null. O veículo existente só é
-     * alterado depois que todas as validações da linha passam.
-     */
     private Veiculo validar(
             ImportacaoVeiculosRequestDTO.Item item,
             Map<String, Integer> linhaPorPlaca,
