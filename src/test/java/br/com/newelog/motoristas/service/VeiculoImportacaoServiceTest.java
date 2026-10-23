@@ -73,6 +73,7 @@ class VeiculoImportacaoServiceTest {
         assertEquals(1, resultado.erros().size());
         assertEquals(2, resultado.erros().get(0).linha());
         assertTrue(resultado.erros().get(0).motivo().contains("placa é obrigatória"));
+        assertEquals("Placa", resultado.erros().get(0).campo());
         assertEquals(veiculosAntes, veiculoRepository.count());
     }
 

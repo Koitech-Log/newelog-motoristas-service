@@ -75,4 +75,13 @@ class VeiculoValidacaoServiceTest {
         assertTrue(motivos.contains("marca deve ter no máximo 60 caracteres"));
         assertTrue(motivos.contains("tipo é obrigatório"));
     }
+
+    @Test
+    void informaOCampoDeCadaProblema() {
+        List<VeiculoValidacaoService.Violacao> violacoes =
+                servico.validarComCampo(item(null, "M".repeat(61), null));
+
+        assertEquals(List.of("Marca", "Placa", "Tipo Veículo"),
+                violacoes.stream().map(VeiculoValidacaoService.Violacao::campo).toList());
+    }
 }
