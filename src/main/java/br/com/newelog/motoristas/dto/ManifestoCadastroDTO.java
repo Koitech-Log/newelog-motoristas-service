@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import jakarta.validation.constraints.Digits;
 
 /**
  * Corpo esperado por POST /api/motoristas/cadastrar-de-manifesto, chamado pelo manifesto-service
@@ -44,6 +46,13 @@ public record ManifestoCadastroDTO(
 
         @NotNull(message = "valorFrete é obrigatório")
         @PositiveOrZero(message = "valorFrete não pode ser negativo")
-        Double valorFrete
+        Double valorFrete,
+
+        // Opcional para manter compatibilidade com o manifesto-service antigo.
+        // null significa que o pedágio não foi informado.
+        @PositiveOrZero(message = "valorPedagio não pode ser negativo")
+        @Digits(integer = 10, fraction = 2, message = "valorPedagio fora de NUMERIC(12,2)")
+        BigDecimal valorPedagio
 ) {
 }
+

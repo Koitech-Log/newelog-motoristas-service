@@ -1,6 +1,10 @@
 package br.com.newelog.motoristas.service;
 
 import java.math.BigDecimal;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,11 @@ import br.com.newelog.motoristas.repository.VeiculoRepository;
  */
 @Service
 public class ManifestoCadastroService {
+
+    private static final Logger log = LoggerFactory.getLogger(ManifestoCadastroService.class);
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private static final String ORIGEM_FIXA = "São José dos Campos";
     private static final String DESTINO_NAO_INFORMADO = "Não informado";
@@ -65,25 +74,49 @@ public class ManifestoCadastroService {
         motorista.setStatus(mapearStatus(dados.status()));
         motorista.setVeiculo(resolverVeiculo(dados.placaVeiculo()));
 
-        BigDecimal valorFrete = dados.valorFrete() != null ? BigDecimal.valueOf(dados.valorFrete()) : BigDecimal.ZERO;
+        BigDecimal valorFrete = dados.valorFrete() != null
+                ? BigDecimal.valueOf(dados.valorFrete()) : BigDecimal.ZERO;
+        BigDecimal valorPedagio = dados.valorPedagio();
+        if (valorPedagio != null && (valorPedagio.signum() < 0
+                || valorPedagio.scale() > 2
+                || valorPedagio.compareTo(new BigDecimal("9999999999.99")) > 0)) {
+            throw new ValidacaoException(java.util.List.of("valorPedagio fora de NUMERIC(12,2)"));
+        }
 
-        // Evita duplicar a viagem se o mesmo manifesto (ou uma linha dele) for
-        // importado mais de uma vez: mesma data + mesmo valor de frete para o
-        // mesmo motorista é tratado como a mesma viagem, já que a Viagem não
-        // guarda um identificador de origem do manifesto (ver javadoc de Viagem).
-        boolean viagemJaExiste = motorista.getViagens().stream().anyMatch(v ->
-                dados.data().equals(v.getData()) && valorFrete.compareTo(v.getValorFrete()) == 0
-        );
+        // Mantém o critério atual de identificação e não cria outra viagem.
+        var correspondentes = motorista.getViagens().stream()
+                .filter(v -> dados.data().equals(v.getData())
+                        && valorFrete.compareTo(v.getValorFrete()) == 0)
+                .toList();
 
-        if (!viagemJaExiste) {
+        if (correspondentes.isEmpty()) {
             Viagem viagem = new Viagem();
             viagem.setMotorista(motorista);
             viagem.setData(dados.data());
             viagem.setOrigem(ORIGEM_FIXA);
             viagem.setDestino(resolverDestino(motorista));
             viagem.setValorFrete(valorFrete);
-            viagem.setValorPedagio(BigDecimal.ZERO);
+            viagem.setValorPedagio(valorPedagio != null ? valorPedagio : BigDecimal.ZERO);
             motorista.getViagens().add(viagem);
+        } else if (valorPedagio != null) {
+            if (correspondentes.size() != 1) {
+                log.warn("Pedágio preservado: {} viagens correspondem à linha importada",
+                        correspondentes.size());
+            } else {
+                Viagem viagem = correspondentes.get(0);
+                // A condição no UPDATE impede sobrescrever um custo conhecido,
+                // inclusive quando duas reimportações disputam o mesmo registro.
+                int corrigidas = entityManager.createQuery(
+                        "UPDATE Viagem v SET v.valorPedagio = :pedagio "
+                        + "WHERE v.id = :id AND v.valorPedagio = 0")
+                        .setParameter("pedagio", valorPedagio)
+                        .setParameter("id", viagem.getId())
+                        .executeUpdate();
+                entityManager.refresh(viagem);
+                if (corrigidas == 0 && valorPedagio.compareTo(viagem.getValorPedagio()) != 0) {
+                    log.warn("Pedágio já preenchido foi preservado na viagem {}", viagem.getId());
+                }
+            }
         }
 
         Motorista salvo = motoristaRepository.save(motorista);
@@ -144,3 +177,4 @@ public class ManifestoCadastroService {
         return documento;
     }
 }
+
