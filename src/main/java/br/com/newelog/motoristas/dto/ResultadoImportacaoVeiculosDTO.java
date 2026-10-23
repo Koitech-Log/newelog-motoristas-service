@@ -8,6 +8,6 @@ public record ResultadoImportacaoVeiculosDTO(
         List<Erro> erros
 ) {
 
-    public record Erro(int linha, String motivo) {
-    }
+    public record Erro(int linha, String campo, String motivo) {
+}
 }

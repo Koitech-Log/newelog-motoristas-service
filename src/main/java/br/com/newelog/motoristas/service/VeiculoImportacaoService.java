@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -100,10 +101,17 @@ public class VeiculoImportacaoService {
             List<ResultadoImportacaoVeiculosDTO.Erro> erros
     ) {
         // Campos obrigatórios e formato (regras do Item). Os motivos vêm
-        // separados por "; " para ficarem legíveis quando há mais de um.
-        List<String> motivos = validacaoService.validar(item);
-        if (!motivos.isEmpty()) {
-            erros.add(erro(item, String.join("; ", motivos)));
+        // separados por "; " e os campos por ", " quando há mais de um.
+        List<VeiculoValidacaoService.Violacao> violacoes = validacaoService.validarComCampo(item);
+        if (!violacoes.isEmpty()) {
+            String campos = violacoes.stream()
+                    .map(VeiculoValidacaoService.Violacao::campo)
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            String motivos = violacoes.stream()
+                    .map(VeiculoValidacaoService.Violacao::motivo)
+                    .collect(Collectors.joining("; "));
+            erros.add(erro(item, campos, motivos));
             return null;
         }
 
@@ -114,7 +122,7 @@ public class VeiculoImportacaoService {
 
         Integer linhaAnterior = linhaPorPlaca.get(placa);
         if (linhaAnterior != null) {
-            erros.add(erro(item, "Placa repetida no arquivo: " + placa
+            erros.add(erro(item, "Placa", "Placa repetida no arquivo: " + placa
                     + " (já informada na linha " + linhaAnterior + ")."));
             return null;
         }
@@ -126,7 +134,7 @@ public class VeiculoImportacaoService {
                             chave -> veiculoTipoRepository.findByNomeIgnoreCase(tipoNome))
                     .orElse(null);
             if (tipo == null) {
-                erros.add(erro(item, "Tipo de veículo não cadastrado: " + tipoNome));
+                erros.add(erro(item, "Tipo Veículo", "Tipo de veículo não cadastrado: " + tipoNome));
                 return null;
             }
         }
@@ -139,8 +147,9 @@ public class VeiculoImportacaoService {
         return veiculo;
     }
 
-    private ResultadoImportacaoVeiculosDTO.Erro erro(ImportacaoVeiculosRequestDTO.Item item, String motivo) {
-        return new ResultadoImportacaoVeiculosDTO.Erro(item.linha(), motivo);
+    private ResultadoImportacaoVeiculosDTO.Erro erro(
+            ImportacaoVeiculosRequestDTO.Item item, String campo, String motivo) {
+        return new ResultadoImportacaoVeiculosDTO.Erro(item.linha(), campo, motivo);
     }
 
     private String limpar(String valor) {
