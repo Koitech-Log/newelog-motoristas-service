@@ -55,6 +55,7 @@ class VeiculoImportacaoServiceTest {
                 item(3, "DEF1234", "Volvo", "Truck")));
 
         assertEquals(2, resultado.cadastrados());
+        assertEquals(0, resultado.atualizados());
         assertTrue(resultado.erros().isEmpty());
         assertEquals(veiculosAntes + 2, veiculoRepository.count());
 
@@ -72,6 +73,7 @@ class VeiculoImportacaoServiceTest {
         assertEquals(1, resultado.erros().size());
         assertEquals(2, resultado.erros().get(0).linha());
         assertTrue(resultado.erros().get(0).motivo().contains("placa é obrigatória"));
+        assertEquals("Placa", resultado.erros().get(0).campo());
         assertEquals(veiculosAntes, veiculoRepository.count());
     }
 
@@ -131,7 +133,8 @@ class VeiculoImportacaoServiceTest {
         ResultadoImportacaoVeiculosDTO resultado = service.importar(List.of(
                 item(2, "ABC1D23", "Fiat", "VUC")));
 
-        assertEquals(1, resultado.cadastrados());
+        assertEquals(0, resultado.cadastrados());
+        assertEquals(1, resultado.atualizados());
         assertTrue(resultado.erros().isEmpty());
         assertEquals(veiculosAntes + 1, veiculoRepository.count()); // não criou duplicata
 
@@ -147,7 +150,8 @@ class VeiculoImportacaoServiceTest {
         ResultadoImportacaoVeiculosDTO resultado = service.importar(List.of(
                 item(2, "ABC1D23", null, "VUC")));
 
-        assertEquals(1, resultado.cadastrados());
+        assertEquals(0, resultado.cadastrados());
+        assertEquals(1, resultado.atualizados());
 
         Veiculo atualizado = veiculoRepository.findByPlaca("ABC1D23").orElseThrow();
         assertEquals("Iveco", atualizado.getMarca());
@@ -179,6 +183,21 @@ class VeiculoImportacaoServiceTest {
         assertEquals(3, resultado.erros().get(0).linha());
         assertEquals(4, resultado.erros().get(1).linha());
         assertEquals(veiculosAntes + 2, veiculoRepository.count());
+    }
+
+    @Test
+    void deveSepararOsVeiculosNovosDosQueJaExistiam() {
+        veiculoRepository.save(criarVeiculo("ABC1D23", "Iveco"));
+
+        ResultadoImportacaoVeiculosDTO resultado = service.importar(List.of(
+                item(2, "ABC1D23", "Fiat", "VUC"),        // já existia
+                item(3, "DEF1234", "Volvo", "Truck"),     // novo
+                item(4, "XYZ9K88", "Scania", "Foguete"))); // erro: tipo inexistente
+
+        assertEquals(1, resultado.cadastrados());
+        assertEquals(1, resultado.atualizados());
+        assertEquals(1, resultado.erros().size());
+        assertEquals(4, resultado.erros().get(0).linha());
     }
 
     private ImportacaoVeiculosRequestDTO.Item item(int linha, String placa, String marca, String tipo) {

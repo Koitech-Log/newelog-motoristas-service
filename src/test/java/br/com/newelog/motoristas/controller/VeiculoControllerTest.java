@@ -91,6 +91,7 @@ class VeiculoControllerTest {
                         .content(corpo))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cadastrados", is(1)))
+                .andExpect(jsonPath("$.atualizados", is(0)))
                 .andExpect(jsonPath("$.erros.length()", is(0)));
 
         Veiculo salvo = veiculoRepository.findByPlaca("ABC1D23").orElseThrow();

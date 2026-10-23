@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +38,11 @@ import br.com.newelog.motoristas.repository.VeiculoTipoRepository;
  * Se a placa já existe no banco, o veículo é atualizado com a marca e o tipo
  * do CSV, em vez de ser rejeitado. Isso completa os veículos criados por
  * importação de manifesto, que só têm a placa. Marca em branco no CSV não apaga
- * a marca que já está salva. O total "cadastrados" da resposta conta tanto os
- * veículos novos quanto os atualizados.
+ * a marca que já está salva.
+ *
+ * Resultado da importação: "cadastrados" conta só os veículos novos,
+ * "atualizados" conta os que já existiam (mesma placa) e "erros" lista as
+ * linhas rejeitadas, com a linha e o motivo.
  *
  * A placa é normalizada como em ManifestoCadastroService (trim + maiúsculas).
  * Um erro inesperado de banco na gravação desfaz o lote inteiro.
@@ -79,18 +83,17 @@ public class VeiculoImportacaoService {
             }
         }
 
-        // Fase 2: grava de uma só vez todos os veículos válidos (novos e atualizados).
-        List<Veiculo> salvos = veiculoRepository.saveAll(validos);
+        // Antes de gravar, separa os que já existiam (têm id) dos novos (ainda
+        // sem id): depois do saveAll, todos passam a ter id.
+        int atualizados = (int) validos.stream().filter(v -> v.getId() != null).count();
+        int cadastrados = validos.size() - atualizados;
 
-        return new ResultadoImportacaoVeiculosDTO(salvos.size(), erros);
+        // Fase 2: grava de uma só vez todos os veículos válidos (novos e atualizados).
+        veiculoRepository.saveAll(validos);
+
+        return new ResultadoImportacaoVeiculosDTO(cadastrados, atualizados, erros);
     }
 
-    /**
-     * Valida uma linha. Se estiver correta, devolve o veículo pronto para ser
-     * salvo (novo, ou o já cadastrado com a marca e o tipo atualizados); se não,
-     * registra o motivo em "erros" e devolve null. O veículo existente só é
-     * alterado depois que todas as validações da linha passam.
-     */
     private Veiculo validar(
             ImportacaoVeiculosRequestDTO.Item item,
             Map<String, Integer> linhaPorPlaca,
@@ -98,10 +101,17 @@ public class VeiculoImportacaoService {
             List<ResultadoImportacaoVeiculosDTO.Erro> erros
     ) {
         // Campos obrigatórios e formato (regras do Item). Os motivos vêm
-        // separados por "; " para ficarem legíveis quando há mais de um.
-        List<String> motivos = validacaoService.validar(item);
-        if (!motivos.isEmpty()) {
-            erros.add(erro(item, String.join("; ", motivos)));
+        // separados por "; " e os campos por ", " quando há mais de um.
+        List<VeiculoValidacaoService.Violacao> violacoes = validacaoService.validarComCampo(item);
+        if (!violacoes.isEmpty()) {
+            String campos = violacoes.stream()
+                    .map(VeiculoValidacaoService.Violacao::campo)
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            String motivos = violacoes.stream()
+                    .map(VeiculoValidacaoService.Violacao::motivo)
+                    .collect(Collectors.joining("; "));
+            erros.add(erro(item, campos, motivos));
             return null;
         }
 
@@ -112,7 +122,7 @@ public class VeiculoImportacaoService {
 
         Integer linhaAnterior = linhaPorPlaca.get(placa);
         if (linhaAnterior != null) {
-            erros.add(erro(item, "Placa repetida no arquivo: " + placa
+            erros.add(erro(item, "Placa", "Placa repetida no arquivo: " + placa
                     + " (já informada na linha " + linhaAnterior + ")."));
             return null;
         }
@@ -124,7 +134,7 @@ public class VeiculoImportacaoService {
                             chave -> veiculoTipoRepository.findByNomeIgnoreCase(tipoNome))
                     .orElse(null);
             if (tipo == null) {
-                erros.add(erro(item, "Tipo de veículo não cadastrado: " + tipoNome));
+                erros.add(erro(item, "Tipo Veículo", "Tipo de veículo não cadastrado: " + tipoNome));
                 return null;
             }
         }
@@ -137,8 +147,9 @@ public class VeiculoImportacaoService {
         return veiculo;
     }
 
-    private ResultadoImportacaoVeiculosDTO.Erro erro(ImportacaoVeiculosRequestDTO.Item item, String motivo) {
-        return new ResultadoImportacaoVeiculosDTO.Erro(item.linha(), motivo);
+    private ResultadoImportacaoVeiculosDTO.Erro erro(
+            ImportacaoVeiculosRequestDTO.Item item, String campo, String motivo) {
+        return new ResultadoImportacaoVeiculosDTO.Erro(item.linha(), campo, motivo);
     }
 
     private String limpar(String valor) {
