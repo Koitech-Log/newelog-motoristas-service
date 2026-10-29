@@ -1,3 +1,4 @@
+
 package br.com.newelog.motoristas.config;
 
 import java.nio.charset.StandardCharsets;
@@ -17,17 +18,16 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
 
 @Configuration
 @EnableWebSecurity
@@ -36,7 +36,7 @@ public class SecurityConfig {
     private static final String EMISSOR = "newelog-auth-service";
 
     private static final String ORIGEM_PRODUCAO =
-        "https://newelog.vercel.app";
+            "https://newelog.vercel.app";
 
     @Bean
     public SecurityFilterChain filterChain(
@@ -59,20 +59,24 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // Permite preflight CORS do navegador.
-                .requestMatchers(
-                    HttpMethod.OPTIONS, "/**"
-                ).permitAll()
+                // Preflight CORS.
+                .requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
 
-                // Endpoints públicos de monitoramento.
+                // Monitoramento público.
                 .requestMatchers(
                     "/actuator/health/**",
                     "/actuator/info"
                 ).permitAll()
 
-                // Todas as demais rotas exigem JWT válido,
-                // independentemente do perfil do usuário.
-                .anyRequest().authenticated()
+                // Endpoint financeiro: somente GESTOR.
+                .requestMatchers(
+                    "/api/dashboard/rentabilidade-media"
+                ).hasRole("GESTOR")
+
+                // Demais rotas: GESTOR e OPERADOR.
+                .anyRequest()
+                    .hasAnyRole("GESTOR", "OPERADOR")
             )
 
             .exceptionHandling(exceptions -> exceptions
@@ -101,7 +105,7 @@ public class SecurityConfig {
 
         if (bytes.length < 32) {
             throw new IllegalStateException(
-                "JWT_SECRET precisa ter pelo menos 32 caracteres."
+                "JWT_SECRET precisa ter pelo menos 32 bytes."
             );
         }
 
@@ -121,18 +125,23 @@ public class SecurityConfig {
 
     private JwtAuthenticationConverter conversor() {
 
-        JwtGrantedAuthoritiesConverter autoridades =
-            new JwtGrantedAuthoritiesConverter();
-
-        autoridades.setAuthoritiesClaimName("perfil");
-        autoridades.setAuthorityPrefix("ROLE_");
-
         JwtAuthenticationConverter conversor =
-            new JwtAuthenticationConverter();
+                new JwtAuthenticationConverter();
 
-        conversor.setJwtGrantedAuthoritiesConverter(
-            autoridades
-        );
+        conversor.setJwtGrantedAuthoritiesConverter(jwt -> {
+            String perfil = jwt.getClaimAsString("perfil");
+
+            // Perfil inválido: não concede nenhuma autoridade.
+            // A autorização das rotas retornará 403.
+            if (!"GESTOR".equals(perfil)
+                    && !"OPERADOR".equals(perfil)) {
+                return List.of();
+            }
+
+            return List.of(
+                new SimpleGrantedAuthority("ROLE_" + perfil)
+            );
+        });
 
         return conversor;
     }
@@ -172,7 +181,7 @@ public class SecurityConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
-            new UrlBasedCorsConfigurationSource();
+                new UrlBasedCorsConfigurationSource();
 
         source.registerCorsConfiguration("/**", config);
 
