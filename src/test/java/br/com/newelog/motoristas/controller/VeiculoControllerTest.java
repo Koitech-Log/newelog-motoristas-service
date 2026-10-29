@@ -2,7 +2,6 @@ package br.com.newelog.motoristas.controller;
 
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,13 +31,13 @@ import br.com.newelog.motoristas.repository.VeiculoRepository;
 import br.com.newelog.motoristas.repository.VeiculoTipoRepository;
 
 /**
- * Testa POST /api/veiculos/cadastrar-de-csv com o JWT validado de verdade (como
- * em SegurancaJwtTest), para cobrir também a regra "só GESTOR" do SecurityConfig
- * e o mapeamento da claim "perfil" para ROLE_*.
+ * Testa POST /api/veiculos/cadastrar-de-csv com JWT real.
  *
- * Os tipos de veículo são criados em cada teste: a V2 (seed) não roda no perfil
- * de teste, ver application-test.properties. O @Transactional desfaz tudo ao
- * final de cada teste.
+ * GESTOR e OPERADOR podem importar veículos por CSV.
+ * O teste valida autenticação, importação e persistência.
+ *
+ * Os tipos de veículo são criados nos testes.
+ * O @Transactional desfaz as alterações ao final de cada teste.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -46,9 +45,11 @@ import br.com.newelog.motoristas.repository.VeiculoTipoRepository;
 @Transactional
 class VeiculoControllerTest {
 
-    // Mesmo valor de app.jwt.secret em application-test.properties
-    private static final String SEGREDO = "segredo-de-teste-com-mais-de-32-caracteres-ok";
-    private static final String URL = "/api/veiculos/cadastrar-de-csv";
+    private static final String SEGREDO =
+            "segredo-de-teste-com-mais-de-32-caracteres-ok";
+
+    private static final String URL =
+            "/api/veiculos/cadastrar-de-csv";
 
     @Autowired
     private MockMvc mockMvc;
@@ -68,25 +69,18 @@ class VeiculoControllerTest {
     }
 
     @Test
-    void operadorRecebe403ENadaEGravado() throws Exception {
-        mockMvc.perform(post(URL)
-                        .header("Authorization", "Bearer " + token("OPERADOR"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(corpoComUmVeiculo("ABC1D23")))
-                .andExpect(status().isForbidden());
-
-        assertFalse(veiculoRepository.existsByPlaca("ABC1D23"));
-    }
-
-    @Test
-    void gestorCadastraVeiculoNovoComMarcaETipo() throws Exception {
+    void operadorPodeImportarVeiculoPorCsv() throws Exception {
         veiculoTipoRepository.save(criarTipo("VUC"));
 
-        // Placa em minúsculas e tipo com outra caixa: ambos devem casar.
-        String corpo = "{\"veiculos\":[{\"linha\":2,\"placa\":\"abc1d23\",\"marca\":\"Fiat\",\"tipo\":\"vuc\"}]}";
+        String corpo =
+                "{\"veiculos\":[{\"linha\":2,\"placa\":\"abc1d23\","
+                + "\"marca\":\"Fiat\",\"tipo\":\"vuc\"}]}";
 
         mockMvc.perform(post(URL)
-                        .header("Authorization", "Bearer " + token("GESTOR"))
+                        .header(
+                                "Authorization",
+                                "Bearer " + token("OPERADOR")
+                        )
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo))
                 .andExpect(status().isOk())
@@ -94,15 +88,49 @@ class VeiculoControllerTest {
                 .andExpect(jsonPath("$.atualizados", is(0)))
                 .andExpect(jsonPath("$.erros.length()", is(0)));
 
-        Veiculo salvo = veiculoRepository.findByPlaca("ABC1D23").orElseThrow();
+        Veiculo salvo = veiculoRepository
+                .findByPlaca("ABC1D23")
+                .orElseThrow();
+
         assertEquals("Fiat", salvo.getMarca());
+        assertEquals("VUC", salvo.getTipo().getNome());
+    }
+
+    @Test
+    void gestorPodeImportarVeiculoPorCsv() throws Exception {
+        veiculoTipoRepository.save(criarTipo("VUC"));
+
+        String corpo =
+                "{\"veiculos\":[{\"linha\":2,\"placa\":\"def4g56\","
+                + "\"marca\":\"Volvo\",\"tipo\":\"VUC\"}]}";
+
+        mockMvc.perform(post(URL)
+                        .header(
+                                "Authorization",
+                                "Bearer " + token("GESTOR")
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cadastrados", is(1)))
+                .andExpect(jsonPath("$.atualizados", is(0)))
+                .andExpect(jsonPath("$.erros.length()", is(0)));
+
+        Veiculo salvo = veiculoRepository
+                .findByPlaca("DEF4G56")
+                .orElseThrow();
+
+        assertEquals("Volvo", salvo.getMarca());
         assertEquals("VUC", salvo.getTipo().getNome());
     }
 
     @Test
     void listaDeVeiculosVaziaRetorna400() throws Exception {
         mockMvc.perform(post(URL)
-                        .header("Authorization", "Bearer " + token("GESTOR"))
+                        .header(
+                                "Authorization",
+                                "Bearer " + token("GESTOR")
+                        )
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"veiculos\":[]}"))
                 .andExpect(status().isBadRequest())
@@ -110,7 +138,8 @@ class VeiculoControllerTest {
     }
 
     private String corpoComUmVeiculo(String placa) {
-        return "{\"veiculos\":[{\"linha\":2,\"placa\":\"" + placa + "\"}]}";
+        return "{\"veiculos\":[{\"linha\":2,\"placa\":\""
+                + placa + "\"}]}";
     }
 
     private VeiculoTipo criarTipo(String nome) {
@@ -120,13 +149,24 @@ class VeiculoControllerTest {
     }
 
     private static String token(String perfil) throws Exception {
-        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), new JWTClaimsSet.Builder()
-                .issuer("newelog-auth-service")
-                .subject("1")
-                .claim("perfil", perfil)
-                .expirationTime(Date.from(Instant.now().plusSeconds(300)))
-                .build());
-        jwt.sign(new MACSigner(SEGREDO.getBytes(StandardCharsets.UTF_8)));
+        SignedJWT jwt = new SignedJWT(
+                new JWSHeader(JWSAlgorithm.HS256),
+                new JWTClaimsSet.Builder()
+                        .issuer("newelog-auth-service")
+                        .subject("1")
+                        .claim("perfil", perfil)
+                        .expirationTime(
+                                Date.from(Instant.now().plusSeconds(300))
+                        )
+                        .build()
+        );
+
+        jwt.sign(
+                new MACSigner(
+                        SEGREDO.getBytes(StandardCharsets.UTF_8)
+                )
+        );
+
         return jwt.serialize();
     }
 }
