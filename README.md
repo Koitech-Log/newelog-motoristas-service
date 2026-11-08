@@ -1,8 +1,25 @@
 # motoristas-service
 
-Cadastro, consulta e disponibilidade dos motoristas agregados da frota Newelog.
-Parte da arquitetura de microsserviços descrita no documento *"Adendo: Decomposição
-em Microsserviços"*.
+> Projeto Integrador 3º Semestre · DSM · FATEC São José dos Campos · Equipe **Koitech-Log** · Cliente **NEWE Logística Integrada**
+>
+> [Repositório principal](https://github.com/Koitech-Log/Koitech-Log-3DSM-Newelog) · [Documentação do projeto](https://github.com/Koitech-Log/Documentos) · [auth-service](https://github.com/Koitech-Log/newelog-auth-service) · [manifesto-service](https://github.com/Koitech-Log/newelog-manifesto-service) · [frontend](https://github.com/Koitech-Log/newelog-frota-web)
+
+Núcleo de dados do NEWELOG: cadastro, consulta e disponibilidade dos motoristas
+agregados, cadastro de veículos, viagens e os indicadores financeiros do dashboard.
+É o único serviço com o banco de motoristas, veículos e viagens; o
+`manifesto-service` lê os arquivos CSV e grava aqui pelas rotas internas.
+
+## O que este serviço entrega
+
+| Sprint | Funcionalidade | Rotas |
+|---|---|---|
+| 1 | Carga inicial e CRUD básico de motoristas | `POST /api/motoristas`, `GET /api/motoristas/{id}` |
+| 1 | Painel de disponibilidade (Disponível / Em operação), filtros por status e tipo de veículo | `GET /api/motoristas`, `PATCH /api/motoristas/{id}/status` |
+| 1 | Vínculo de viagens do manifesto aos motoristas | `POST /api/motoristas/validar-manifesto`, `POST /api/motoristas/cadastrar-de-manifesto` |
+| 2 | Proteção das rotas com JWT e perfis (Gestor / Operador) | todas |
+| 2 | Dashboard financeiro: frete, custo e rentabilidade total do mês | `GET /api/dashboard` |
+| 2 | Rentabilidade média por viagem (geral, por motorista e por veículo) | `GET /api/dashboard/rentabilidade-media` |
+| 2 | Cadastro de veículos em massa por CSV, com validação por linha | `POST /api/veiculos/cadastrar-de-csv` |
 
 ## Stack
 
@@ -71,8 +88,13 @@ Todas as rotas, exceto `/actuator/health` e `/actuator/info`, exigem
 
 | Perfil | Acesso |
 |---|---|
-| `GESTOR` | Todas as rotas, inclusive cadastro manual (`POST /api/motoristas`) |
-| `OPERADOR` | Todas as rotas, exceto `POST /api/motoristas` |
+| `GESTOR` | Todas as rotas |
+| `OPERADOR` | Todas as rotas, exceto `POST /api/motoristas` e `GET /api/dashboard/rentabilidade-media` |
+
+> ⚠️ Hoje `GET /api/dashboard` e `POST /api/veiculos/cadastrar-de-csv` aceitam
+> os dois perfis no back-end. O front-end só mostra o dashboard para o gestor.
+> Para restringir também na API, inclua essas rotas no `hasRole("GESTOR")` do
+> `SecurityConfig`.
 
 Sem token ou token inválido/expirado → `401`. Perfil sem permissão → `403`.
 
@@ -86,7 +108,27 @@ Sem token ou token inválido/expirado → `401`. Perfil sem permissão → `403`
 | POST | `/api/motoristas` | Gestor | Cadastro manual. Corpo: `nome` (obrigatório), `codigoExterno`, `cpfCnpj`, `telefone`, `veiculoId`, `status`, `diasDisponiveis`, `diasOperacao`. Retorna `201`. `id`, `viagens` e `cadastroValidado` enviados pelo cliente são ignorados |
 | POST | `/api/motoristas/validar-manifesto` | Gestor, Operador | Valida uma linha de manifesto (CPF, placa, regras de negócio). `200` se válida; `400` com a lista `erros` se não |
 | POST | `/api/motoristas/cadastrar-de-manifesto` | Gestor, Operador | Efetiva o cadastro a partir de uma linha já validada (ver abaixo). Retorna o detalhe do motorista |
+| GET | `/api/dashboard?ano=&mes=` | Gestor, Operador | Indicadores do mês: `freteTotal`, `custoTotal`, `rentabilidadeTotal` |
+| GET | `/api/dashboard/rentabilidade-media?ano=&mes=` | Gestor | Rentabilidade média por viagem: bloco `geral`, listas `porMotorista` e `porVeiculo` (frete, custo, rentabilidade, quantidade de viagens e média) |
+| POST | `/api/veiculos/cadastrar-de-csv` | Gestor, Operador | Cadastra/atualiza veículos já lidos do CSV pelo manifesto-service. Retorna `{ cadastrados, atualizados, erros[{ linha, campo, motivo }] }` |
 | GET | `/actuator/health` | público | Health check |
+
+### Dashboard financeiro
+
+- O período é sempre um mês (`ano` entre 1 e 9999, `mes` entre 1 e 12; fora disso, `400`).
+- **Rentabilidade = frete − custo.** Hoje o custo considerado é o **pedágio**, único custo confirmado pelo parceiro (ver seção "Dados").
+- **Rentabilidade média = rentabilidade total ÷ quantidade de viagens.** Sem viagens no período, a média é zero e não gera erro.
+
+### Importação de veículos por CSV
+
+O upload é feito pelo front-end no `manifesto-service` (`POST /veiculos/upload`),
+que lê o arquivo e chama esta rota. Aqui ficam as regras de cadastro:
+
+- Placa (formato antigo ou Mercosul, com ou sem hífen) e tipo de veículo são obrigatórios; marca é opcional, com até 60 caracteres.
+- O tipo de veículo precisa existir na tabela `veiculo_tipo`; senão a linha é rejeitada.
+- Placa repetida no mesmo arquivo é rejeitada (indicando a linha anterior).
+- Placa já cadastrada atualiza o veículo existente (`atualizados`); placa nova cria (`cadastrados`).
+- Linhas inválidas não impedem o cadastro das válidas.
 
 ### Cadastro a partir do manifesto
 
