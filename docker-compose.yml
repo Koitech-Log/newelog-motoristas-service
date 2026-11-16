@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-newelog}
       PORT: 8080
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET (o mesmo do auth-service, mín. 32 caracteres)}
+      RANKING_FATOR_SP: ${RANKING_FATOR_SP:-1.20}
     ports:
       - "8080:8080"
     depends_on:
