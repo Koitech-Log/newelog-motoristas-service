@@ -1,8 +1,11 @@
 package br.com.newelog.motoristas.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Stream;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -162,10 +165,7 @@ public class ManifestoCadastroService {
         var porNumero = viagemRepository.findByNumeroManifesto(numero);
         if (porNumero.isPresent()) {
             Viagem viagem = porNumero.get();
-            if (motorista.getId() == null || !motorista.getId().equals(viagem.getMotorista().getId())) {
-                log.warn("Manifesto {} já está gravado em outro motorista; corrigindo só a viagem existente",
-                        numero);
-            }
+            rejeitarSeDivergente(numero, viagem, motorista, data, valorFrete);
             return Correspondencia.de(viagem);
         }
 
@@ -190,6 +190,35 @@ public class ManifestoCadastroService {
         }
         viagem.setNumeroManifesto(numero);
         return Correspondencia.de(viagem);
+    }
+
+    /**
+     * D20: o mesmo número de manifesto com motorista, data ou frete diferentes
+     * do gravado é rejeitado (400, conta como rejeitada na importação) e a
+     * viagem não muda. Corrigir um manifesto já importado está fora do escopo.
+     */
+    private void rejeitarSeDivergente(String numero, Viagem viagem, Motorista motorista,
+                                      LocalDate data, BigDecimal valorFrete) {
+        List<String> divergencias = new ArrayList<>();
+        Motorista gravado = viagem.getMotorista();
+        if (motorista.getId() == null || !motorista.getId().equals(gravado.getId())) {
+            divergencias.add("motorista (gravado " + gravado.getNome() + ", recebido " + motorista.getNome() + ")");
+        }
+        if (!data.equals(viagem.getData())) {
+            divergencias.add("data (gravada " + viagem.getData() + ", recebida " + data + ")");
+        }
+        if (valorFrete.compareTo(viagem.getValorFrete()) != 0) {
+            divergencias.add("valorFrete (gravado " + duasCasas(viagem.getValorFrete())
+                    + ", recebido " + duasCasas(valorFrete) + ")");
+        }
+        if (!divergencias.isEmpty()) {
+            throw new ValidacaoException(List.of("Manifesto " + numero
+                    + " já importado com dados diferentes: " + String.join(", ", divergencias)));
+        }
+    }
+
+    private static String duasCasas(BigDecimal valor) {
+        return valor.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private Stream<Viagem> correspondentesPeloCriterioAntigo(Motorista motorista, LocalDate data,

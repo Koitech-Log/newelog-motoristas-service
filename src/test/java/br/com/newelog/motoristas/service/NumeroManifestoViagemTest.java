@@ -267,6 +267,63 @@ class NumeroManifestoViagemTest {
                 .andExpect(status().isOk());
     }
 
+    // D20 / CAR3-P2-7: mesmo número com motorista, data ou frete diferentes
+
+    private void naoMudaAViagem(String antes) {
+        em.clear();
+        assertThat(todas()).singleElement().extracting(NumeroManifestoViagemTest::resumo).isEqualTo(antes);
+    }
+
+    @Test
+    void mesmoNumeroComDataDiferenteERejeitadoSemAlterarAViagem() {
+        cadastro.cadastrar(linha("17156", "São Paulo", "10.00"));
+        flush();
+        String antes = resumo(todas().get(0));
+
+        assertThatThrownBy(() -> cadastro.cadastrar(new ManifestoCadastroDTO("M-17156", DATA.plusDays(1),
+                "Motorista Numero", "52998224725", "ABC1D23", "Finalizado", 277.00, null, "Campinas", "17156")))
+                .isInstanceOf(ValidacaoException.class)
+                .extracting("erros").asList().singleElement().asString()
+                .isEqualTo("Manifesto 17156 já importado com dados diferentes: data (gravada 2026-04-10, recebida 2026-04-11)");
+        naoMudaAViagem(antes);
+    }
+
+    @Test
+    void mesmoNumeroComFreteDiferenteERejeitado() {
+        cadastro.cadastrar(linha("17156", "São Paulo"));
+        flush();
+        String antes = resumo(todas().get(0));
+
+        assertThatThrownBy(() -> cadastro.cadastrar(new ManifestoCadastroDTO("M-17156", DATA,
+                "Motorista Numero", "52998224725", "ABC1D23", "Finalizado", 300.00, null, "Campinas", "17156")))
+                .isInstanceOf(ValidacaoException.class)
+                .extracting("erros").asList().singleElement().asString()
+                .contains("Manifesto 17156", "valorFrete (gravado 277.00, recebido 300.00)");
+        naoMudaAViagem(antes);
+    }
+
+    @Test
+    void mesmoNumeroEmOutroMotoristaERejeitadoCitandoTodosOsCampos() throws Exception {
+        cadastro.cadastrar(linha("17156", "São Paulo"));
+        flush();
+        String antes = resumo(todas().get(0));
+
+        mvc.perform(post("/api/motoristas/cadastrar-de-manifesto")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"codigoExterno":"M-17156","data":"2026-04-12","nomeMotorista":"Outro Motorista",
+                             "cpfMotorista":"11144477735","placaVeiculo":"DEF1G23","valorFrete":500.00,
+                             "destino":"Campinas","numeroManifesto":"17156"}
+                            """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erros[0]").value(
+                        "Manifesto 17156 já importado com dados diferentes: "
+                        + "motorista (gravado Motorista Numero, recebido Outro Motorista), "
+                        + "data (gravada 2026-04-10, recebida 2026-04-12), "
+                        + "valorFrete (gravado 277.00, recebido 500.00)"));
+        naoMudaAViagem(antes);
+    }
+
     private static String resumo(Viagem v) {
         return v.getId() + "|" + v.getNumeroManifesto() + "|" + v.getDestino() + "|" + v.getValorPedagio();
     }
