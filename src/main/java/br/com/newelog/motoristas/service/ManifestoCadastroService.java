@@ -94,15 +94,19 @@ public class ManifestoCadastroService {
             viagem.setMotorista(motorista);
             viagem.setData(dados.data());
             viagem.setOrigem(ORIGEM_FIXA);
-            viagem.setDestino(resolverDestino(motorista));
+            viagem.setDestino(dados.destino() != null ? dados.destino() : DESTINO_NAO_INFORMADO);
             viagem.setValorFrete(valorFrete);
             viagem.setValorPedagio(valorPedagio != null ? valorPedagio : BigDecimal.ZERO);
             motorista.getViagens().add(viagem);
-        } else if (valorPedagio != null) {
-            if (correspondentes.size() != 1) {
-                log.warn("Pedágio preservado: {} viagens correspondem à linha importada",
+        } else if (correspondentes.size() != 1) {
+            // Não escolhe entre várias viagens: pedágio e destino ficam como estão
+            if (valorPedagio != null || dados.destino() != null) {
+                log.warn("Pedágio e destino preservados: {} viagens correspondem à linha importada",
                         correspondentes.size());
-            } else {
+            }
+        } else {
+            corrigirDestino(correspondentes.get(0), dados.destino());
+            if (valorPedagio != null) {
                 Viagem viagem = correspondentes.get(0);
                 // A condição no UPDATE impede sobrescrever um custo conhecido,
                 // inclusive quando duas reimportações disputam o mesmo registro.
@@ -148,17 +152,19 @@ public class ManifestoCadastroService {
     }
 
     /**
-     * O CSV do manifesto não traz destino da viagem. O destino usado é o
-     * mesmo da última viagem já registrada desse motorista — mesmo valor
-     * "Não informado" já usado no seed real (V2) para os casos em que o
-     * manifesto de origem não trouxe destino confiável.
+     * Reimportação (D14): o CSV é a fonte do destino. Corrige quando veio um
+     * destino e ele difere do gravado (inclusive "Não informado"); destino
+     * vazio no CSV mantém o gravado. Usa UPDATE direto, e não só o setter,
+     * porque o refresh feito na correção do pedágio descartaria uma alteração
+     * ainda não gravada.
      */
-    private String resolverDestino(Motorista motorista) {
-        var viagens = motorista.getViagens();
-        if (!viagens.isEmpty()) {
-            return viagens.get(viagens.size() - 1).getDestino();
-        }
-        return DESTINO_NAO_INFORMADO;
+    private void corrigirDestino(Viagem viagem, String destino) {
+        if (destino == null || destino.equals(viagem.getDestino())) return;
+        entityManager.createQuery("UPDATE Viagem v SET v.destino = :destino WHERE v.id = :id")
+                .setParameter("destino", destino)
+                .setParameter("id", viagem.getId())
+                .executeUpdate();
+        viagem.setDestino(destino);
     }
 
     /**

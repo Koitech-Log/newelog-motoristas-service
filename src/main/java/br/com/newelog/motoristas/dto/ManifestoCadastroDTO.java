@@ -8,6 +8,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Size;
 
 /**
  * Corpo esperado por POST /api/motoristas/cadastrar-de-manifesto, chamado pelo manifesto-service
@@ -52,7 +53,23 @@ public record ManifestoCadastroDTO(
         // null significa que o pedágio não foi informado.
         @PositiveOrZero(message = "valorPedagio não pode ser negativo")
         @Digits(integer = 10, fraction = 2, message = "valorPedagio fora de NUMERIC(12,2)")
-        BigDecimal valorPedagio
+        BigDecimal valorPedagio,
+
+        // Opcional (coluna Destino do CSV). null/vazio = "Não informado".
+        // O compact constructor remove espaços antes da validação de tamanho.
+        @Size(max = 120, message = "destino deve ter no máximo 120 caracteres")
+        String destino
 ) {
+    public ManifestoCadastroDTO {
+        destino = DestinoManifesto.normalizar(destino);
+    }
+
+    /** Compatibilidade: chamadas sem destino (manifesto-service antigo). */
+    public ManifestoCadastroDTO(String codigoExterno, LocalDate data, String nomeMotorista,
+                                String cpfMotorista, String placaVeiculo, String status,
+                                Double valorFrete, BigDecimal valorPedagio) {
+        this(codigoExterno, data, nomeMotorista, cpfMotorista, placaVeiculo, status,
+                valorFrete, valorPedagio, null);
+    }
 }
 
