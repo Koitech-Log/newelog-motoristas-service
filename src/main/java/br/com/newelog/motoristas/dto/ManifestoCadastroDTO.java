@@ -58,10 +58,16 @@ public record ManifestoCadastroDTO(
         // Opcional (coluna Destino do CSV). null/vazio = "Não informado".
         // O compact constructor remove espaços antes da validação de tamanho.
         @Size(max = 120, message = "destino deve ter no máximo 120 caracteres")
-        String destino
+        String destino,
+
+        // Opcional (coluna Manifesto do CSV). Identifica a viagem na reimportação;
+        // ausente = critério antigo motorista + data + valorFrete.
+        @Size(max = 40, message = "numeroManifesto deve ter no máximo 40 caracteres")
+        String numeroManifesto
 ) {
     public ManifestoCadastroDTO {
         destino = DestinoManifesto.normalizar(destino);
+        numeroManifesto = DestinoManifesto.normalizar(numeroManifesto);
     }
 
     /** Compatibilidade: chamadas sem destino (manifesto-service antigo). */
@@ -69,7 +75,15 @@ public record ManifestoCadastroDTO(
                                 String cpfMotorista, String placaVeiculo, String status,
                                 Double valorFrete, BigDecimal valorPedagio) {
         this(codigoExterno, data, nomeMotorista, cpfMotorista, placaVeiculo, status,
-                valorFrete, valorPedagio, null);
+                valorFrete, valorPedagio, null, null);
+    }
+
+    /** Compatibilidade: chamadas sem número do manifesto (rodada anterior). */
+    public ManifestoCadastroDTO(String codigoExterno, LocalDate data, String nomeMotorista,
+                                String cpfMotorista, String placaVeiculo, String status,
+                                Double valorFrete, BigDecimal valorPedagio, String destino) {
+        this(codigoExterno, data, nomeMotorista, cpfMotorista, placaVeiculo, status,
+                valorFrete, valorPedagio, destino, null);
     }
 }
 

@@ -46,9 +46,14 @@ public record ManifestoValidacaoDTO(
 
     // Opcional (coluna Destino do CSV); mesma regra de ManifestoCadastroDTO
     @Size(max = 120, message = "destino deve ter no máximo 120 caracteres")
-    String destino
+    String destino,
+
+    // Opcional (coluna Manifesto do CSV); mesma regra de ManifestoCadastroDTO
+    @Size(max = 40, message = "numeroManifesto deve ter no máximo 40 caracteres")
+    String numeroManifesto
 ) {
     public ManifestoValidacaoDTO {
         destino = DestinoManifesto.normalizar(destino);
+        numeroManifesto = DestinoManifesto.normalizar(numeroManifesto);
     }
 }

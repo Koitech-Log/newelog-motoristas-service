@@ -8,9 +8,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import br.com.newelog.motoristas.model.Viagem;
 
 public interface ViagemRepository extends JpaRepository<Viagem, Long> {
+
+    Optional<Viagem> findByNumeroManifesto(String numeroManifesto);
 
     @Query("""
         SELECT COALESCE(SUM(v.valorFrete), 0)
