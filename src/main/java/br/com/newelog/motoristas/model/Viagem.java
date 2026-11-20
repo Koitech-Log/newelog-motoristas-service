@@ -51,6 +51,14 @@ public class Viagem {
     @Column(nullable = false, length = 120)
     private String destino;
 
+    /**
+     * Número do manifesto de origem (coluna "Manifesto" do CSV). Identifica a
+     * viagem na reimportação; null nas viagens anteriores à V3 até a primeira
+     * reimportação.
+     */
+    @Column(name = "numero_manifesto", length = 40, unique = true)
+    private String numeroManifesto;
+
     @Column(name = "valor_frete", nullable = false, precision = 12, scale = 2)
     private BigDecimal valorFrete;
 

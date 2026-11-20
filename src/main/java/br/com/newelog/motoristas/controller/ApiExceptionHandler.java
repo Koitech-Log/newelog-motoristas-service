@@ -36,7 +36,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConflito(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(corpoDeErro("Conflito: já existe registro com estes dados únicos (CPF/CNPJ, código ou placa)."));
+                .body(corpoDeErro("Conflito: já existe registro com estes dados únicos (CPF/CNPJ, código, placa ou número do manifesto)."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
