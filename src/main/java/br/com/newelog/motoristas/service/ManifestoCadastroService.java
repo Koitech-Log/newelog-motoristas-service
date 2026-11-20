@@ -1,11 +1,18 @@
 package br.com.newelog.motoristas.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Stream;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,6 +25,7 @@ import br.com.newelog.motoristas.model.Veiculo;
 import br.com.newelog.motoristas.model.Viagem;
 import br.com.newelog.motoristas.repository.MotoristaRepository;
 import br.com.newelog.motoristas.repository.VeiculoRepository;
+import br.com.newelog.motoristas.repository.ViagemRepository;
 
 /**
  * Efetiva o cadastro/atualização de um motorista a partir de uma linha de
@@ -42,15 +50,18 @@ public class ManifestoCadastroService {
     private final MotoristaRepository motoristaRepository;
     private final VeiculoRepository veiculoRepository;
     private final MotoristaService motoristaService;
+    private final ViagemRepository viagemRepository;
 
     public ManifestoCadastroService(
             MotoristaRepository motoristaRepository,
             VeiculoRepository veiculoRepository,
-            MotoristaService motoristaService
+            MotoristaService motoristaService,
+            ViagemRepository viagemRepository
     ) {
         this.motoristaRepository = motoristaRepository;
         this.veiculoRepository = veiculoRepository;
         this.motoristaService = motoristaService;
+        this.viagemRepository = viagemRepository;
     }
 
     @Transactional
@@ -83,27 +94,29 @@ public class ManifestoCadastroService {
             throw new ValidacaoException(java.util.List.of("valorPedagio fora de NUMERIC(12,2)"));
         }
 
-        // Mantém o critério atual de identificação e não cria outra viagem.
-        var correspondentes = motorista.getViagens().stream()
-                .filter(v -> dados.data().equals(v.getData())
-                        && valorFrete.compareTo(v.getValorFrete()) == 0)
-                .toList();
+        Correspondencia correspondencia =
+                localizarViagem(motorista, dados.numeroManifesto(), dados.data(), valorFrete);
+        Viagem viagemExistente = correspondencia.viagem();
 
-        if (correspondentes.isEmpty()) {
+        if (correspondencia.ambigua()) {
+            // Sem número: não escolhe entre várias viagens; pedágio e destino ficam como estão
+            if (valorPedagio != null || dados.destino() != null) {
+                log.warn("Pedágio e destino preservados: várias viagens correspondem à linha importada");
+            }
+        } else if (viagemExistente == null) {
             Viagem viagem = new Viagem();
             viagem.setMotorista(motorista);
             viagem.setData(dados.data());
             viagem.setOrigem(ORIGEM_FIXA);
-            viagem.setDestino(resolverDestino(motorista));
+            viagem.setDestino(dados.destino() != null ? dados.destino() : DESTINO_NAO_INFORMADO);
             viagem.setValorFrete(valorFrete);
             viagem.setValorPedagio(valorPedagio != null ? valorPedagio : BigDecimal.ZERO);
+            viagem.setNumeroManifesto(dados.numeroManifesto());
             motorista.getViagens().add(viagem);
-        } else if (valorPedagio != null) {
-            if (correspondentes.size() != 1) {
-                log.warn("Pedágio preservado: {} viagens correspondem à linha importada",
-                        correspondentes.size());
-            } else {
-                Viagem viagem = correspondentes.get(0);
+        } else {
+            corrigirDestino(viagemExistente, dados.destino());
+            if (valorPedagio != null) {
+                Viagem viagem = viagemExistente;
                 // A condição no UPDATE impede sobrescrever um custo conhecido,
                 // inclusive quando duas reimportações disputam o mesmo registro.
                 int corrigidas = entityManager.createQuery(
@@ -121,6 +134,97 @@ public class ManifestoCadastroService {
 
         Motorista salvo = motoristaRepository.save(motorista);
         return motoristaService.buscarDetalhe(salvo.getId());
+    }
+
+    /** viagem null e ambigua false = nenhuma viagem casa (criar nova). */
+    private record Correspondencia(Viagem viagem, boolean ambigua) {
+        static final Correspondencia NENHUMA = new Correspondencia(null, false);
+        static final Correspondencia VARIAS = new Correspondencia(null, true);
+        static Correspondencia de(Viagem viagem) { return new Correspondencia(viagem, false); }
+    }
+
+    /**
+     * Identifica a viagem já gravada que corresponde à linha do manifesto.
+     *
+     * Com número do manifesto: 1º a viagem com esse número; se não houver,
+     * uma viagem SEM número do mesmo motorista + data + frete (base gravada
+     * antes da V3), que passa a ter o número; senão, nenhuma (cria nova).
+     * Assim dois manifestos distintos com a mesma data e frete viram duas
+     * viagens, e a base antiga não é duplicada na primeira reimportação.
+     *
+     * Sem número (cliente antigo): critério antigo motorista + data + frete;
+     * 2 ou mais correspondentes = VARIAS (não altera nenhuma).
+     */
+    private Correspondencia localizarViagem(Motorista motorista, String numero, LocalDate data, BigDecimal valorFrete) {
+        if (numero == null) {
+            var correspondentes = correspondentesPeloCriterioAntigo(motorista, data, valorFrete).toList();
+            if (correspondentes.isEmpty()) return Correspondencia.NENHUMA;
+            return correspondentes.size() == 1 ? Correspondencia.de(correspondentes.get(0)) : Correspondencia.VARIAS;
+        }
+
+        var porNumero = viagemRepository.findByNumeroManifesto(numero);
+        if (porNumero.isPresent()) {
+            Viagem viagem = porNumero.get();
+            rejeitarSeDivergente(numero, viagem, motorista, data, valorFrete);
+            return Correspondencia.de(viagem);
+        }
+
+        // Base antiga: escolhe a de menor id para o resultado não depender da ordem da lista.
+        var semNumero = correspondentesPeloCriterioAntigo(motorista, data, valorFrete)
+                .filter(v -> v.getNumeroManifesto() == null && v.getId() != null)
+                .min(Comparator.comparing(Viagem::getId));
+        if (semNumero.isEmpty()) return Correspondencia.NENHUMA;
+
+        Viagem viagem = semNumero.get();
+        // Condição IS NULL: se outra importação simultânea já deu número a esta
+        // viagem, nada é alterado e a linha é recusada (409) em vez de duplicar.
+        int marcadas = entityManager.createQuery(
+                "UPDATE Viagem v SET v.numeroManifesto = :numero "
+                + "WHERE v.id = :id AND v.numeroManifesto IS NULL")
+                .setParameter("numero", numero)
+                .setParameter("id", viagem.getId())
+                .executeUpdate();
+        if (marcadas == 0) {
+            throw new DataIntegrityViolationException(
+                    "Viagem " + viagem.getId() + " recebeu outro número de manifesto em paralelo");
+        }
+        viagem.setNumeroManifesto(numero);
+        return Correspondencia.de(viagem);
+    }
+
+    /**
+     * D20: o mesmo número de manifesto com motorista, data ou frete diferentes
+     * do gravado é rejeitado (400, conta como rejeitada na importação) e a
+     * viagem não muda. Corrigir um manifesto já importado está fora do escopo.
+     */
+    private void rejeitarSeDivergente(String numero, Viagem viagem, Motorista motorista,
+                                      LocalDate data, BigDecimal valorFrete) {
+        List<String> divergencias = new ArrayList<>();
+        Motorista gravado = viagem.getMotorista();
+        if (motorista.getId() == null || !motorista.getId().equals(gravado.getId())) {
+            divergencias.add("motorista (gravado " + gravado.getNome() + ", recebido " + motorista.getNome() + ")");
+        }
+        if (!data.equals(viagem.getData())) {
+            divergencias.add("data (gravada " + viagem.getData() + ", recebida " + data + ")");
+        }
+        if (valorFrete.compareTo(viagem.getValorFrete()) != 0) {
+            divergencias.add("valorFrete (gravado " + duasCasas(viagem.getValorFrete())
+                    + ", recebido " + duasCasas(valorFrete) + ")");
+        }
+        if (!divergencias.isEmpty()) {
+            throw new ValidacaoException(List.of("Manifesto " + numero
+                    + " já importado com dados diferentes: " + String.join(", ", divergencias)));
+        }
+    }
+
+    private static String duasCasas(BigDecimal valor) {
+        return valor.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private Stream<Viagem> correspondentesPeloCriterioAntigo(Motorista motorista, LocalDate data,
+                                                            BigDecimal valorFrete) {
+        return motorista.getViagens().stream()
+                .filter(v -> data.equals(v.getData()) && valorFrete.compareTo(v.getValorFrete()) == 0);
     }
 
     private Veiculo resolverVeiculo(String placa) {
@@ -148,17 +252,19 @@ public class ManifestoCadastroService {
     }
 
     /**
-     * O CSV do manifesto não traz destino da viagem. O destino usado é o
-     * mesmo da última viagem já registrada desse motorista — mesmo valor
-     * "Não informado" já usado no seed real (V2) para os casos em que o
-     * manifesto de origem não trouxe destino confiável.
+     * Reimportação (D14): o CSV é a fonte do destino. Corrige quando veio um
+     * destino e ele difere do gravado (inclusive "Não informado"); destino
+     * vazio no CSV mantém o gravado. Usa UPDATE direto, e não só o setter,
+     * porque o refresh feito na correção do pedágio descartaria uma alteração
+     * ainda não gravada.
      */
-    private String resolverDestino(Motorista motorista) {
-        var viagens = motorista.getViagens();
-        if (!viagens.isEmpty()) {
-            return viagens.get(viagens.size() - 1).getDestino();
-        }
-        return DESTINO_NAO_INFORMADO;
+    private void corrigirDestino(Viagem viagem, String destino) {
+        if (destino == null || destino.equals(viagem.getDestino())) return;
+        entityManager.createQuery("UPDATE Viagem v SET v.destino = :destino WHERE v.id = :id")
+                .setParameter("destino", destino)
+                .setParameter("id", viagem.getId())
+                .executeUpdate();
+        viagem.setDestino(destino);
     }
 
     /**

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 
 public record ManifestoValidacaoDTO(
     @NotBlank(message = "manifestoID é obrigatório")
@@ -41,5 +42,18 @@ public record ManifestoValidacaoDTO(
 
     @NotNull(message = "saldoAPagar é obrigatório")
     @PositiveOrZero(message = "saldoAPagar não pode ser negativo")
-    Double saldoAPagar
-) {}
+    Double saldoAPagar,
+
+    // Opcional (coluna Destino do CSV); mesma regra de ManifestoCadastroDTO
+    @Size(max = 120, message = "destino deve ter no máximo 120 caracteres")
+    String destino,
+
+    // Opcional (coluna Manifesto do CSV); mesma regra de ManifestoCadastroDTO
+    @Size(max = 40, message = "numeroManifesto deve ter no máximo 40 caracteres")
+    String numeroManifesto
+) {
+    public ManifestoValidacaoDTO {
+        destino = DestinoManifesto.normalizar(destino);
+        numeroManifesto = DestinoManifesto.normalizar(numeroManifesto);
+    }
+}
